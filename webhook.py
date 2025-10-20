@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 load_dotenv()
 app = Flask(__name__)
 
-VERIFY_TOKEN    = os.getenv("VERIFY_TOKEN")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "sullato_token_verificacao")
 ACCESS_TOKEN    = os.getenv("WA_ACCESS_TOKEN") or os.getenv("ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID") or os.getenv("PHONE_NUMBER_ID")
 
