@@ -21,7 +21,15 @@ LINK_INSTAGRAM_MICROS   = os.getenv("LINK_INSTAGRAM_MICROS", "https://www.instag
 LINK_INSTAGRAM_VEICULOS = os.getenv("LINK_INSTAGRAM_VEICULOS", "https://www.instagram.com/sullato.veiculos").strip()
 
 # URL do Apps Script / API que grava na planilha da Oficina
-OFICINA_SHEET_WEBHOOK_URL = os.getenv("OFICINA_SHEET_WEBHOOK_URL", "").strip()
+OFICINA_SHEET_WEBHOOK_URL = (
+    os.getenv("OFICINA_SHEET_WEBHOOK_URL", "").strip()
+    or os.getenv("GOOGLE_SHEETS_WEBHOOK_URL", "").strip()
+)
+
+print(
+    "[INIT] OFICINA_SHEET_WEBHOOK_URL:",
+    OFICINA_SHEET_WEBHOOK_URL if OFICINA_SHEET_WEBHOOK_URL else "NÃO DEFINIDA"
+)
 
 GRAPH_URL = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages" if WA_PHONE_NUMBER_ID else ""
 HEADERS   = {"Authorization": f"Bearer {WA_ACCESS_TOKEN}", "Content-Type": "application/json"}
