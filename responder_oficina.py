@@ -12,9 +12,10 @@ from typing import Dict, Any, List
 WA_ACCESS_TOKEN    = os.getenv("WA_ACCESS_TOKEN", "").strip() or os.getenv("ACCESS_TOKEN", "").strip()
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID", "").strip() or os.getenv("PHONE_NUMBER_ID", "").strip()
 
-NOME_EMPRESA   = os.getenv("NOME_EMPRESA", "Sullato Oficina e Pós-Venda").strip()
+NOME_EMPRESA   = os.getenv("NOME_EMPRESA", "Sullato Oficina e Peças").strip()
 LINK_SITE      = os.getenv("LINK_SITE", "https://www.sullato.com.br").strip()
 LINK_INSTAGRAM = os.getenv("LINK_INSTAGRAM", "https://www.instagram.com/sullatomicrosevans").strip()
+LINK_INSTAGRAM = os.getenv("LINK_INSTAGRAM", "https://www.instagram.com/sullato.veiculos").strip()
 
 GRAPH_URL = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages" if WA_PHONE_NUMBER_ID else ""
 HEADERS   = {"Authorization": f"Bearer {WA_ACCESS_TOKEN}", "Content-Type": "application/json"}
@@ -54,7 +55,7 @@ def msg_boas_vindas(nome=None):
     return (
         f"{saudacao} 👋\n"
         f"Bem-vindo(a) à *{NOME_EMPRESA}*! 🚗🔧\n\n"
-        "Aqui você agenda serviços, solicita peças, fala com o pós-venda e muito mais.\n\n"
+        "Aqui você agenda serviços, adquire peças e acessórios, fala com o pós-venda e muito mais.\n\n"
         "Escolha abaixo como deseja seguir:"
     )
 
@@ -72,7 +73,7 @@ BTN_MAIS = [
 ]
 
 BTN_ENDERECOS = [
-    {"id": "end_loja", "title": "📍 Loja Principal"},
+    {"id": "end_loja", "title": "📍 Lojas"},
     {"id": "end_oficina", "title": "🔧 Oficina e Peças"},
     {"id": "op_voltar", "title": "Voltar"},
 ]
@@ -85,15 +86,30 @@ BTN_POSVENDA = [
 
 MSG_ENDERECOS = (
     "🏠 *Endereços Sullato*\n\n"
-    "📍 *Loja Principal*\n"
-    "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
-    "☎️ (11) 94054-5704\n\n"
-    "📍 *Oficina e Peças*\n"
+
+    "📍 *Sullato Micros e Vans*\n"
     "Av. São Miguel, 7900 – CEP 08070-001\n"
-    "☎️ (11) 94054-5704\n\n"
-    f"🌐 Site: {LINK_SITE}\n"
-    f"📸 Instagram: {LINK_INSTAGRAM}"
+    "☎️ (11) 2030-5081 / (11) 94054-5704\n"
+    "👉 https://wa.me/551120305081\n"
+    "👉 https://wa.me/5511940545704\n\n"
+
+    "📍 *Sullato Veículos*\n"
+    "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
+    "☎️ (11) 2542-3332 / (11) 94054-5704\n"
+    "👉 https://wa.me/551125423332\n"
+    "👉 https://wa.me/5511940545704\n\n"
+
+    "📍 *Sullato Oficina e Peças*\n"
+    "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
+    "☎️ (11) 2542-3333\n"
+    "👉 https://wa.me/551125423333\n\n"
+
+    f"🌐 *Site:* https://www.sullato.br\n\n"
+
+    f"📸 *Instagram Micros e Vans:* https://www.instagram.com/sullatomicrosevans\n"
+    f"📸 *Instagram Veículos:* https://www.instagram.com/sullato.veiculos\n"
 )
+
 # ===== Listas de serviços e peças ============================================
 SERVICOS_DISPONIVEIS = [
     "Revisão completa",
@@ -114,7 +130,6 @@ PECAS_DISPONIVEIS = [
     "Bateria e elétrica",
     "Outras peças"
 ]
-
 # ===== MENU: SERVIÇOS =========================================================
 def _menu_servicos(contato: str):
     texto = (
@@ -160,19 +175,42 @@ def _processar_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
         _solicitar_dados(contato, "peca", nome_cliente, descricao)
         return
 
-# ===== PEDE DADOS DO CLIENTE ==================================================
+# ===== PEDE DADOS DO CLIENTE (ALINHADO COM A PLANILHA) ========================
 def _solicitar_dados(contato: str, tipo: str, nome_cliente: str, descricao: str):
+    """
+    Depois que o cliente escolhe um serviço ou peça, pedimos todos os dados
+    necessários para alimentar a aba `captação_chatbot` da planilha oficial
+    da Oficina.
+    """
     if tipo == "servico":
-        msg = (
-            f"✅ *Serviço selecionado:* {descricao}\n\n"
-            "Informe:\n• Placa\n• Modelo\n• Novo ou Pós-venda?"
-        )
+        cabecalho = f"✅ *Serviço selecionado:* {descricao}"
     else:
-        msg = (
-            f"✅ *Peça selecionada:* {descricao}\n\n"
-            "Informe:\n• Placa\n• Modelo\n• Novo ou Pós-venda?"
-        )
+        cabecalho = f"✅ *Peça selecionada:* {descricao}"
+
+    msg = (
+        f"{cabecalho}\n\n"
+        "Para agilizar o atendimento, responda *tudo em uma única mensagem*, "
+        "copiando o modelo abaixo e preenchendo os dados:\n\n"
+        "1) Tipo de veículo: (Passeio / Utilitário / Van escolar / Outro)\n"
+        "2) Placa:\n"
+        "3) Ano/Modelo:\n"
+        "4) Quilometragem aproximada:\n"
+        "5) Data desejada para levar o veículo:\n"
+        "6) Nome completo do responsável:\n"
+        "7) CPF do responsável:\n"
+        "8) Data de nascimento do responsável:\n"
+        "9) CEP:\n"
+        "10) Endereço (rua/avenida):\n"
+        "11) Número:\n"
+        "12) Complemento (se tiver):\n"
+        "13) De onde nos conheceu? (Instagram / Google / Indicação / Panfleto / Outro)\n"
+        "14) Se foi panfleto, informe o código (ex.: P-1234):\n"
+        "15) Alguma sugestão ou observação sobre o serviço?\n\n"
+        "_Assim que você responder, nossa equipe já recebe os dados aqui no sistema e "
+        "continua o atendimento pelo mesmo número._"
+    )
     _send_text(contato, msg)
+
 # ===== ROTEADOR GERAL =========================================================
 def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
 
@@ -207,10 +245,14 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
     # PÓS-VENDA
     # ======================
     if resposta_id == "pos_garantia":
-        return _send_text(contato, "🛠️ Para garantia envie: Placa, modelo e problema.")
+        return _send_text(contato, "🛠️ Para garantia, envie: Placa, modelo e problema apresentado.")
 
     if resposta_id == "pos_agendar":
-        return _send_text(contato, "📅 Para agendar envie: Placa, modelo e tipo de serviço.")
+        return _send_text(
+            contato,
+            "📅 Para agendar um serviço no pós-venda, envie:\n"
+            "• Placa\n• Modelo\n• Serviço desejado\n• Data e período preferidos"
+        )
 
     # ======================
     # ENDEREÇOS
@@ -231,7 +273,6 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
     # NÃO RECONHECIDO
     # ======================
     return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
-
 # ===== FUNÇÃO PRINCIPAL DO CHATBOT ===========================================
 def responder_evento_mensagem(entry: Dict[str, Any]):
     try:
@@ -272,7 +313,11 @@ def responder_evento_mensagem(entry: Dict[str, Any]):
         return _send_text(contato, "Envie *oi* para iniciar.")
     except Exception as e:
         print("[ERRO responder_evento_mensagem]", e)
-        _send_text(contato, "⚠️ Erro temporário. Tente novamente.")
+        try:
+            _send_text(contato, "⚠️ Erro temporário. Tente novamente.")
+        except Exception:
+            # Se nem o envio do erro funcionar, apenas loga.
+            print("[ERRO responder_evento_mensagem] Falha ao enviar mensagem de erro ao cliente.")
 
 
 print("✅ responder_oficina.py carregado com sucesso — Sullato Oficina")
