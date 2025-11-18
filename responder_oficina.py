@@ -309,8 +309,8 @@ def _continuar_fluxo_dados(contato: str, texto: str):
     )
 
     if etapa == "marca_modelo":
-        dados["marca_modelo"] = msg
-        estado["etapa_atual"] = "ano_modelo"
+        dados["marca_modelo"] = texto_str
+        estado["etapa"] = "ano_modelo"
         return _send_text(contato, "Informe o *ano/modelo* (ex.: 2018/2019):")
 
     # 2) Ano/Modelo
