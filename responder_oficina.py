@@ -15,10 +15,17 @@ ESTADOS_ATENDIMENTO: Dict[str, Dict[str, Any]] = {}
 WA_ACCESS_TOKEN    = os.getenv("WA_ACCESS_TOKEN", "").strip() or os.getenv("ACCESS_TOKEN", "").strip()
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID", "").strip() or os.getenv("PHONE_NUMBER_ID", "").strip()
 
-NOME_EMPRESA   = os.getenv("NOME_EMPRESA", "Sullato Oficina e Peças").strip()
-LINK_SITE      = os.getenv("LINK_SITE", "https://www.sullato.br").strip()
-LINK_INSTAGRAM_MICROS   = os.getenv("LINK_INSTAGRAM_MICROS", "https://www.instagram.com/sullatomicrosevans").strip()
-LINK_INSTAGRAM_VEICULOS = os.getenv("LINK_INSTAGRAM_VEICULOS", "https://www.instagram.com/sullato.veiculos").strip()
+NOME_EMPRESA = os.getenv("NOME_EMPRESA", "Sullato Oficina e Peças").strip()
+LINK_SITE    = os.getenv("LINK_SITE", "https://www.sullato.com.br").strip()
+
+LINK_INSTAGRAM_MICROS   = os.getenv(
+    "LINK_INSTAGRAM_MICROS",
+    "https://www.instagram.com/sullatomicrosevans"
+).strip()
+LINK_INSTAGRAM_VEICULOS = os.getenv(
+    "LINK_INSTAGRAM_VEICULOS",
+    "https://www.instagram.com/sullato.veiculos"
+).strip()
 
 # URL do Apps Script / API que grava na planilha da Oficina
 OFICINA_SHEET_WEBHOOK_URL = (
@@ -31,8 +38,14 @@ print(
     OFICINA_SHEET_WEBHOOK_URL if OFICINA_SHEET_WEBHOOK_URL else "NÃO DEFINIDA"
 )
 
-GRAPH_URL = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages" if WA_PHONE_NUMBER_ID else ""
-HEADERS   = {"Authorization": f"Bearer {WA_ACCESS_TOKEN}", "Content-Type": "application/json"}
+GRAPH_URL = (
+    f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
+    if WA_PHONE_NUMBER_ID else ""
+)
+HEADERS = {
+    "Authorization": f"Bearer {WA_ACCESS_TOKEN}",
+    "Content-Type": "application/json",
+}
 
 # ===== Funções utilitárias ====================================================
 def _hora_sp():
