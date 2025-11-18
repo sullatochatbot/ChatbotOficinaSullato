@@ -243,7 +243,8 @@ def _montar_resumo(contato: str, estado: Dict[str, Any]) -> str:
         f"*{tipo}:* {descricao}\n"
         f"*Tipo de veículo:* {g('tipo_veiculo')}\n"
         f"*Placa:* {g('placa')}\n"
-        f"*Ano/Modelo:* {g('ano_modelo')}\n"
+        f"Marca/Modelo: {dados.get('marca_modelo','')}\n"
+        f"*Ano fab/Modelo:* {g('ano_modelo')}\n"
         f"*Quilometragem:* {g('km')}\n"
         f"*Data desejada:* {g('data_desejada')}\n"
         f"*Responsável:* {g('nome_responsavel')}\n"
@@ -300,9 +301,14 @@ def _continuar_fluxo_dados(contato: str, texto: str):
 
     # 1) Placa
     if etapa == "placa":
-        dados["placa"] = texto_str
-        estado["etapa"] = "ano_modelo"
-        return _send_text(contato, "Agora informe o *ano/modelo* do veículo (ex.: 2018/2019):")
+        dados["placa"] = msg
+        estado["etapa_atual"] = "marca_modelo"
+        return _send_text(contato, "Informe a *marca/modelo* do veículo (ex.: VW Amarok, Fiat Ducato, Renault Master):")
+
+    if etapa == "marca_modelo":
+        dados["marca_modelo"] = msg
+        estado["etapa_atual"] = "ano_modelo"
+        return _send_text(contato, "Informe o *ano/modelo* (ex.: 2018/2019):")
 
     # 2) Ano/Modelo
     if etapa == "ano_modelo":
