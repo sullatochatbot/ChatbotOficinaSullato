@@ -301,9 +301,12 @@ def _continuar_fluxo_dados(contato: str, texto: str):
 
     # 1) Placa
     if etapa == "placa":
-        dados["placa"] = msg
-        estado["etapa_atual"] = "marca_modelo"
-        return _send_text(contato, "Informe a *marca/modelo* do veículo (ex.: VW Amarok, Fiat Ducato, Renault Master):")
+        dados["placa"] = texto_str
+        estado["etapa"] = "marca_modelo"
+        return _send_text(
+        contato,
+        "Informe a *marca/modelo* do veículo (ex.: VW/Amarok, Fiat/Ducato, Renault/Master):"
+    )
 
     if etapa == "marca_modelo":
         dados["marca_modelo"] = msg
