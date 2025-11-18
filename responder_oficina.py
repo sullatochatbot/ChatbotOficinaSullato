@@ -175,36 +175,61 @@ def _solicitar_dados(contato: str, tipo: str, nome_cliente: str, descricao: str)
     _send_text(contato, msg)
 # ===== ROTEADOR GERAL =========================================================
 def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
-    # Expansão
+
+    # ======================
+    # BOTÕES PRINCIPAIS
+    # ======================
+    if resposta_id == "op_servicos":
+        return _menu_servicos(contato)
+
+    if resposta_id == "op_pecas":
+        return _menu_pecas(contato)
+
+    if resposta_id == "op_mais":
+        return _send_buttons(contato, "Escolha uma opção 👇", BTN_MAIS)
+
+    # ======================
+    # EXPANSÃO
+    # ======================
     if resposta_id == "serv_mais":
         return _menu_servicos_mais(contato)
 
     if resposta_id == "peca_mais":
         return _menu_pecas_mais(contato)
 
-    # Escolha direta
+    # ======================
+    # ESCOLHA DIRETA
+    # ======================
     if resposta_id.startswith("serv_") or resposta_id.startswith("peca_"):
         return _processar_escolha(contato, resposta_id, nome_cliente)
 
-    # Pós-venda
+    # ======================
+    # PÓS-VENDA
+    # ======================
     if resposta_id == "pos_garantia":
         return _send_text(contato, "🛠️ Para garantia envie: Placa, modelo e problema.")
 
     if resposta_id == "pos_agendar":
         return _send_text(contato, "📅 Para agendar envie: Placa, modelo e tipo de serviço.")
 
-    # Endereços
+    # ======================
+    # ENDEREÇOS
+    # ======================
     if resposta_id == "op_endereco":
         return _send_buttons(contato, MSG_ENDERECOS, BTN_ENDERECOS)
 
     if resposta_id in ["end_loja", "end_oficina"]:
         return _send_text(contato, MSG_ENDERECOS)
 
-    # Voltar
+    # ======================
+    # VOLTAR
+    # ======================
     if resposta_id == "op_voltar":
         return _send_buttons(contato, msg_boas_vindas(nome_cliente), BTN_ROOT)
 
-    # Não reconhecido
+    # ======================
+    # NÃO RECONHECIDO
+    # ======================
     return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
 
 # ===== FUNÇÃO PRINCIPAL DO CHATBOT ===========================================
