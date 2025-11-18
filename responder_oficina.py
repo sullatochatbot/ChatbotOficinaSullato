@@ -8,14 +8,17 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, List
 
+# ===== Estado de atendimento por contato =========================
+ESTADOS_ATENDIMENTO: Dict[str, Dict[str, Any]] = {}
+
 # ===== Variáveis de ambiente ====================================
 WA_ACCESS_TOKEN    = os.getenv("WA_ACCESS_TOKEN", "").strip() or os.getenv("ACCESS_TOKEN", "").strip()
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID", "").strip() or os.getenv("PHONE_NUMBER_ID", "").strip()
 
 NOME_EMPRESA   = os.getenv("NOME_EMPRESA", "Sullato Oficina e Peças").strip()
-LINK_SITE      = os.getenv("LINK_SITE", "https://www.sullato.com.br").strip()
-LINK_INSTAGRAM = os.getenv("LINK_INSTAGRAM", "https://www.instagram.com/sullatomicrosevans").strip()
-LINK_INSTAGRAM = os.getenv("LINK_INSTAGRAM", "https://www.instagram.com/sullato.veiculos").strip()
+LINK_SITE      = os.getenv("LINK_SITE", "https://www.sullato.br").strip()
+LINK_INSTAGRAM_MICROS   = os.getenv("LINK_INSTAGRAM_MICROS", "https://www.instagram.com/sullatomicrosevans").strip()
+LINK_INSTAGRAM_VEICULOS = os.getenv("LINK_INSTAGRAM_VEICULOS", "https://www.instagram.com/sullato.veiculos").strip()
 
 GRAPH_URL = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages" if WA_PHONE_NUMBER_ID else ""
 HEADERS   = {"Authorization": f"Bearer {WA_ACCESS_TOKEN}", "Content-Type": "application/json"}
@@ -26,16 +29,25 @@ def _hora_sp():
 
 def _send_text(to: str, text: str):
     """Envia mensagens de texto no WhatsApp."""
+    if not GRAPH_URL or not WA_ACCESS_TOKEN:
+        print("[WARN] GRAPH_URL ou WA_ACCESS_TOKEN não configurados.")
+        return
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
         "type": "text",
         "text": {"preview_url": False, "body": text[:4096]}
     }
-    requests.post(GRAPH_URL, headers=HEADERS, json=payload, timeout=30)
+    try:
+        requests.post(GRAPH_URL, headers=HEADERS, json=payload, timeout=30)
+    except Exception as e:
+        print("[ERRO _send_text]", e)
 
 def _send_buttons(to: str, body: str, buttons: List[Dict[str, str]]):
     """Envia botões interativos."""
+    if not GRAPH_URL or not WA_ACCESS_TOKEN:
+        print("[WARN] GRAPH_URL ou WA_ACCESS_TOKEN não configurados.")
+        return
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -46,7 +58,10 @@ def _send_buttons(to: str, body: str, buttons: List[Dict[str, str]]):
             "action": {"buttons": [{"type": "reply", "reply": b} for b in buttons[:3]]}
         }
     }
-    requests.post(GRAPH_URL, headers=HEADERS, json=payload, timeout=30)
+    try:
+        requests.post(GRAPH_URL, headers=HEADERS, json=payload, timeout=30)
+    except Exception as e:
+        print("[ERRO _send_buttons]", e)
 
 # ===== Boas-vindas ============================================================
 def msg_boas_vindas(nome=None):
@@ -84,6 +99,12 @@ BTN_POSVENDA = [
     {"id": "op_voltar", "title": "Voltar"},
 ]
 
+# Botões de tipo de veículo (única etapa com botões no fluxo de dados)
+BTN_TIPO_VEICULO = [
+    {"id": "tipo_passeio",    "title": "Passeio"},
+    {"id": "tipo_utilitario", "title": "Utilitário"},
+]
+
 MSG_ENDERECOS = (
     "🏠 *Endereços Sullato*\n\n"
 
@@ -104,10 +125,10 @@ MSG_ENDERECOS = (
     "☎️ (11) 2542-3333\n"
     "👉 https://wa.me/551125423333\n\n"
 
-    f"🌐 *Site:* https://www.sullato.br\n\n"
+    f"🌐 *Site:* {LINK_SITE}\n\n"
 
-    f"📸 *Instagram Micros e Vans:* https://www.instagram.com/sullatomicrosevans\n"
-    f"📸 *Instagram Veículos:* https://www.instagram.com/sullato.veiculos\n"
+    f"📸 *Instagram Micros e Vans:* {LINK_INSTAGRAM_MICROS}\n"
+    f"📸 *Instagram Veículos:* {LINK_INSTAGRAM_VEICULOS}\n"
 )
 
 # ===== Listas de serviços e peças ============================================
@@ -166,57 +187,167 @@ def _processar_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
     if resposta_id.startswith("serv_"):
         indice = int(resposta_id.split("_")[1])
         descricao = SERVICOS_DISPONIVEIS[indice]
-        _solicitar_dados(contato, "servico", nome_cliente, descricao)
+        _iniciar_fluxo_dados(contato, "servico", nome_cliente, descricao)
         return
 
     if resposta_id.startswith("peca_"):
         indice = int(resposta_id.split("_")[1])
         descricao = PECAS_DISPONIVEIS[indice]
-        _solicitar_dados(contato, "peca", nome_cliente, descricao)
+        _iniciar_fluxo_dados(contato, "peca", nome_cliente, descricao)
         return
 
-# ===== PEDE DADOS DO CLIENTE (ALINHADO COM A PLANILHA) ========================
-def _solicitar_dados(contato: str, tipo: str, nome_cliente: str, descricao: str):
+# ===== INICIA O FLUXO DE PERGUNTAS ===========================================
+def _iniciar_fluxo_dados(contato: str, tipo: str, nome_cliente: str, descricao: str):
     """
-    Depois que o cliente escolhe um serviço ou peça, pedimos todos os dados
-    necessários para alimentar a aba `captação_chatbot` da planilha oficial
-    da Oficina.
+    Começa o fluxo pergunta-a-pergunta.
+    Apenas o tipo de veículo será em botão (Passeio / Utilitário).
     """
-    if tipo == "servico":
-        cabecalho = f"✅ *Serviço selecionado:* {descricao}"
-    else:
-        cabecalho = f"✅ *Peça selecionada:* {descricao}"
-
-    msg = (
-        f"{cabecalho}\n\n"
-        "Para agilizar o atendimento, responda *tudo em uma única mensagem*, "
-        "copiando o modelo abaixo e preenchendo os dados:\n\n"
-        "1) Tipo de veículo: (Passeio / Utilitário / Van escolar / Outro)\n"
-        "2) Placa:\n"
-        "3) Ano/Modelo:\n"
-        "4) Quilometragem aproximada:\n"
-        "5) Data desejada para levar o veículo:\n"
-        "6) Nome completo do responsável:\n"
-        "7) CPF do responsável:\n"
-        "8) Data de nascimento do responsável:\n"
-        "9) CEP:\n"
-        "10) Endereço (rua/avenida):\n"
-        "11) Número:\n"
-        "12) Complemento (se tiver):\n"
-        "13) De onde nos conheceu? (Instagram / Google / Indicação / Panfleto / Outro)\n"
-        "14) Se foi panfleto, informe o código (ex.: P-1234):\n"
-        "15) Alguma sugestão ou observação sobre o serviço?\n\n"
-        "_Assim que você responder, nossa equipe já recebe os dados aqui no sistema e "
-        "continua o atendimento pelo mesmo número._"
+    cabecalho = (
+        f"✅ *Serviço selecionado:* {descricao}"
+        if tipo == "servico"
+        else f"✅ *Peça selecionada:* {descricao}"
     )
-    _send_text(contato, msg)
 
+    ESTADOS_ATENDIMENTO[contato] = {
+        "etapa": "tipo_veiculo",
+        "tipo": tipo,
+        "descricao": descricao,
+        "nome": nome_cliente or "",
+        "dados": {}
+    }
+
+    texto = (
+        f"{cabecalho}\n\n"
+        "Para começar, escolha o *tipo de veículo* 👇"
+    )
+    _send_buttons(contato, texto, BTN_TIPO_VEICULO)
+
+# ===== CONTINUA O FLUXO DE PERGUNTAS =========================================
+def _continuar_fluxo_dados(contato: str, texto: str):
+    estado = ESTADOS_ATENDIMENTO.get(contato)
+    if not estado:
+        return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
+
+    dados = estado.setdefault("dados", {})
+    etapa = estado.get("etapa")
+
+    # 1) Placa
+    if etapa == "placa":
+        dados["placa"] = texto.strip()
+        estado["etapa"] = "ano_modelo"
+        return _send_text(contato, "Agora informe o *ano/modelo* do veículo (ex.: 2018/2019):")
+
+    # 2) Ano/Modelo
+    if etapa == "ano_modelo":
+        dados["ano_modelo"] = texto.strip()
+        estado["etapa"] = "km"
+        return _send_text(contato, "Informe a *quilometragem aproximada* (ex.: 85.000 km):")
+
+    # 3) Quilometragem
+    if etapa == "km":
+        dados["km"] = texto.strip()
+        estado["etapa"] = "data"
+        return _send_text(
+            contato,
+            "Qual a *data desejada* para levar o veículo?\n"
+            "(Ex.: 25/11 ou 'próxima terça de manhã')"
+        )
+
+    # 4) Data desejada
+    if etapa == "data":
+        dados["data_desejada"] = texto.strip()
+        estado["etapa"] = "nome_responsavel"
+        return _send_text(contato, "Informe o *nome completo do responsável* pelo veículo:")
+
+    # 5) Nome responsável
+    if etapa == "nome_responsavel":
+        dados["nome_responsavel"] = texto.strip()
+        estado["etapa"] = "cpf"
+        return _send_text(contato, "Agora informe o *CPF* do responsável:")
+
+    # 6) CPF
+    if etapa == "cpf":
+        dados["cpf"] = texto.strip()
+        estado["etapa"] = "nascimento"
+        return _send_text(contato, "Informe a *data de nascimento* do responsável (ex.: 10/03/1985):")
+
+    # 7) Data de nascimento
+    if etapa == "nascimento":
+        dados["nascimento"] = texto.strip()
+        estado["etapa"] = "cep"
+        return _send_text(contato, "Informe o *CEP*:")
+
+    # 8) CEP
+    if etapa == "cep":
+        dados["cep"] = texto.strip()
+        estado["etapa"] = "endereco"
+        return _send_text(contato, "Informe o *endereço* (rua/avenida):")
+
+    # 9) Endereço
+    if etapa == "endereco":
+        dados["endereco"] = texto.strip()
+        estado["etapa"] = "numero"
+        return _send_text(contato, "Informe o *número*:")
+
+    # 10) Número
+    if etapa == "numero":
+        dados["numero"] = texto.strip()
+        estado["etapa"] = "complemento"
+        return _send_text(contato, "Complemento (se não tiver, responda 'nenhum'):")
+
+    # 11) Complemento
+    if etapa == "complemento":
+        dados["complemento"] = texto.strip()
+        estado["etapa"] = "origem"
+        return _send_text(
+            contato,
+            "De onde nos conheceu?\n"
+            "Ex.: Instagram, Google, Indicação, Panfleto, Outro..."
+        )
+
+    # 12) Origem
+    if etapa == "origem":
+        dados["origem_cliente"] = texto.strip()
+        estado["etapa"] = "panfleto"
+        return _send_text(
+            contato,
+            "Se veio por *panfleto*, informe o código (ex.: P-1234).\n"
+            "Se não for o caso, responda 'não'."
+        )
+
+    # 13) Código do panfleto
+    if etapa == "panfleto":
+        dados["panfleto_codigo"] = texto.strip()
+        estado["etapa"] = "sugestao"
+        return _send_text(
+            contato,
+            "Por fim, deixe alguma *sugestão ou observação* sobre o serviço "
+            "(se não tiver, pode responder 'nenhuma')."
+        )
+
+    # 14) Sugestão / observação
+    if etapa == "sugestao":
+        dados["sugestao_servico"] = texto.strip()
+
+        # Aqui depois podemos plugar a gravação na planilha do Google Sheets
+        # Exemplo:
+        # salvar_dados_oficina(contato, estado)
+
+        ESTADOS_ATENDIMENTO.pop(contato, None)
+        return _send_text(
+            contato,
+            "Perfeito, obrigado! 🙏\n\n"
+            "Recebemos todas as informações. Nossa equipe da *Sullato Oficina e Pós-Venda* "
+            "vai dar sequência no mesmo número deste WhatsApp."
+        )
+
+    # Se chegar aqui, algo saiu do fluxo esperado
+    ESTADOS_ATENDIMENTO.pop(contato, None)
+    return _send_text(contato, "Não entendi muito bem. Envie *oi* para recomeçar, por favor.")
 # ===== ROTEADOR GERAL =========================================================
 def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
 
-    # ======================
     # BOTÕES PRINCIPAIS
-    # ======================
     if resposta_id == "op_servicos":
         return _menu_servicos(contato)
 
@@ -226,24 +357,31 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
     if resposta_id == "op_mais":
         return _send_buttons(contato, "Escolha uma opção 👇", BTN_MAIS)
 
-    # ======================
-    # EXPANSÃO
-    # ======================
+    # TIPO DE VEÍCULO (Passeio / Utilitário)
+    if resposta_id in ("tipo_passeio", "tipo_utilitario"):
+        estado = ESTADOS_ATENDIMENTO.get(contato)
+        if not estado:
+            return _send_text(contato, "Vamos começar de novo. Envie *oi* para iniciar, por favor.")
+
+        tipo_label = "Passeio" if resposta_id == "tipo_passeio" else "Utilitário"
+        dados = estado.setdefault("dados", {})
+        dados["tipo_veiculo"] = tipo_label
+
+        estado["etapa"] = "placa"
+        return _send_text(contato, "Perfeito! Agora informe a *placa* do veículo:")
+
+    # EXPANSÃO LISTAS
     if resposta_id == "serv_mais":
         return _menu_servicos_mais(contato)
 
     if resposta_id == "peca_mais":
         return _menu_pecas_mais(contato)
 
-    # ======================
-    # ESCOLHA DIRETA
-    # ======================
+    # ESCOLHA DE SERVIÇO / PEÇA
     if resposta_id.startswith("serv_") or resposta_id.startswith("peca_"):
         return _processar_escolha(contato, resposta_id, nome_cliente)
 
-    # ======================
     # PÓS-VENDA
-    # ======================
     if resposta_id == "pos_garantia":
         return _send_text(contato, "🛠️ Para garantia, envie: Placa, modelo e problema apresentado.")
 
@@ -254,25 +392,21 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
             "• Placa\n• Modelo\n• Serviço desejado\n• Data e período preferidos"
         )
 
-    # ======================
     # ENDEREÇOS
-    # ======================
     if resposta_id == "op_endereco":
         return _send_buttons(contato, MSG_ENDERECOS, BTN_ENDERECOS)
 
     if resposta_id in ["end_loja", "end_oficina"]:
         return _send_text(contato, MSG_ENDERECOS)
 
-    # ======================
     # VOLTAR
-    # ======================
     if resposta_id == "op_voltar":
+        ESTADOS_ATENDIMENTO.pop(contato, None)
         return _send_buttons(contato, msg_boas_vindas(nome_cliente), BTN_ROOT)
 
-    # ======================
     # NÃO RECONHECIDO
-    # ======================
     return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
+
 # ===== FUNÇÃO PRINCIPAL DO CHATBOT ===========================================
 def responder_evento_mensagem(entry: Dict[str, Any]):
     try:
@@ -288,26 +422,33 @@ def responder_evento_mensagem(entry: Dict[str, Any]):
         nome_wa = contacts[0].get("profile", {}).get("name")
 
         tipo = msg.get("type")
-        texto, resposta_id = "", None
+        texto, texto_lower, resposta_id = "", "", None
 
         if tipo == "text":
-            texto = msg["text"]["body"].lower().strip()
+            texto = msg["text"]["body"]
+            texto_lower = texto.lower().strip()
 
         elif tipo == "interactive":
             inter = msg["interactive"]
             if inter["type"] == "button_reply":
                 resposta_id = inter["button_reply"]["id"]
-                texto = inter["button_reply"]["title"].lower().strip()
+                texto = inter["button_reply"]["title"]
+                texto_lower = texto.lower().strip()
 
         print(f"[WA] Msg de {contato}: {texto} ({resposta_id})")
 
-        # Saudações
-        if any(p in texto for p in ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"]):
+        # Saudações: sempre reiniciam o fluxo
+        if texto_lower and any(p in texto_lower for p in ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"]):
+            ESTADOS_ATENDIMENTO.pop(contato, None)
             return _send_buttons(contato, msg_boas_vindas(nome_wa), BTN_ROOT)
 
-        # Roteamento por botão
+        # Se veio de botão, roteia pelos botões
         if resposta_id:
             return _rotear_escolha(contato, resposta_id, nome_wa)
+
+        # Se não é botão mas há fluxo em andamento, continua o fluxo de perguntas
+        if ESTADOS_ATENDIMENTO.get(contato):
+            return _continuar_fluxo_dados(contato, texto)
 
         # Fallback
         return _send_text(contato, "Envie *oi* para iniciar.")
@@ -316,8 +457,6 @@ def responder_evento_mensagem(entry: Dict[str, Any]):
         try:
             _send_text(contato, "⚠️ Erro temporário. Tente novamente.")
         except Exception:
-            # Se nem o envio do erro funcionar, apenas loga.
             print("[ERRO responder_evento_mensagem] Falha ao enviar mensagem de erro ao cliente.")
-
 
 print("✅ responder_oficina.py carregado com sucesso — Sullato Oficina")
