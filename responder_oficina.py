@@ -176,6 +176,7 @@ PECAS_DISPONIVEIS = [
     "Bateria e elétrica",
     "Outras peças"
 ]
+
 # ===== MENU: SERVIÇOS =========================================================
 def _menu_servicos(contato: str):
     texto = (
@@ -243,6 +244,25 @@ def _iniciar_fluxo_dados(contato: str, tipo: str, nome_cliente: str, descricao: 
     )
     _send_buttons(contato, texto, BTN_TIPO_VEICULO)
 
+def _iniciar_fluxo_posvenda(contato: str, nome_cliente: str):
+    """
+    Fluxo específico de Pós-venda (Agendar Serviço).
+    Reaproveita o mesmo fluxo base de dados da oficina, mas marcado como tipo 'posvenda'.
+    """
+    ESTADOS_ATENDIMENTO[contato] = {
+        "etapa": "tipo_veiculo",
+        "tipo": "posvenda",  # tipo especial para pós-venda
+        "descricao": "Pós-venda (agendamento)",
+        "nome": nome_cliente or "",
+        "dados": {},
+    }
+
+    texto = (
+        "🛠️ *Pós-venda Sullato*\\n\\n"
+        "Vamos te ajudar com o seu atendimento de pós-venda.\\n"
+        "Para começar, escolha o *tipo de veículo* 👇"
+    )
+    _send_buttons(contato, texto, BTN_TIPO_VEICULO)
 # ===== HELPERS: ORIGEM, RESUMO E SALVAR PLANILHA =============================
 def _perguntar_origem(contato: str):
     texto = (
@@ -257,10 +277,20 @@ def _perguntar_origem(contato: str):
 
 def _montar_resumo(contato: str, estado: Dict[str, Any]) -> str:
     dados = estado.get("dados", {})
-    tipo = "Serviço" if estado.get("tipo") == "servico" else "Peça"
+
+    tipo_raw = estado.get("tipo")
+    if tipo_raw == "servico":
+        tipo = "Serviço"
+    elif tipo_raw == "peca":
+        tipo = "Peça"
+    elif tipo_raw == "posvenda":
+        tipo = "Pós-venda"
+    else:
+        tipo = "Atendimento"
+
     descricao = estado.get("descricao", "")
 
-    def g(chave, padrao=""):
+    def g(chave, padrao: str = ""):
         return dados.get(chave, padrao)
 
     return (
@@ -271,6 +301,10 @@ def _montar_resumo(contato: str, estado: Dict[str, Any]) -> str:
         f"Marca/Modelo: {dados.get('marca_modelo','')}\n"
         f"*Ano fab/Modelo:* {g('ano_modelo')}\n"
         f"*Quilometragem:* {g('km')}\n"
+        f"*Descrição problema (serviço):* {g('descricao_problema_simples')}\n"
+        f"*Descrição peça:* {g('descricao_peca_simples')}\n"
+        f"*Problema (pós-venda):* {g('problema_posvenda')}\n"
+        f"*Data de compra do veículo:* {g('data_compra_veiculo')}\n"
         f"*Data desejada:* {g('data_desejada')}\n"
         f"*Responsável:* {g('nome_responsavel')}\n"
         f"*CPF:* {g('cpf')}\n"
@@ -315,6 +349,7 @@ def salvar_dados_oficina(contato: str, estado: Dict[str, Any]):
         print("[SHEETS_OFICINA]", r.status_code, r.text[:300])
     except Exception as e:
         print("[ERRO salvar_dados_oficina]", e)
+
 # ===== CONTINUA O FLUXO DE PERGUNTAS =========================================
 def _continuar_fluxo_dados(contato: str, texto: str):
     estado = ESTADOS_ATENDIMENTO.get(contato)
@@ -331,10 +366,11 @@ def _continuar_fluxo_dados(contato: str, texto: str):
         dados["placa"] = texto_str
         estado["etapa"] = "marca_modelo"
         return _send_text(
-        contato,
-        "Informe a *marca/modelo* do veículo (ex.: VW/Amarok, Fiat/Ducato, Renault/Master):"
-    )
+            contato,
+            "Informe a *marca/modelo* do veículo (ex.: VW/Amarok, Fiat/Ducato, Renault/Master):"
+        )
 
+    # Marca/Modelo
     if etapa == "marca_modelo":
         dados["marca_modelo"] = texto_str
         estado["etapa"] = "ano_modelo"
@@ -349,6 +385,78 @@ def _continuar_fluxo_dados(contato: str, texto: str):
     # 3) Quilometragem
     if etapa == "km":
         dados["km"] = texto_str
+
+        tipo_atendimento = estado.get("tipo")
+
+        # Fluxo específico de PÓS-VENDA:
+        # depois da quilometragem perguntamos o problema e a data de compra.
+        if tipo_atendimento == "posvenda":
+            estado["etapa"] = "problema_posvenda"
+            return _send_text(
+                contato,
+                "Descreva de forma simples e direta o *problema que o veículo está apresentando*:"
+            )
+
+        # Fluxo de SERVIÇOS / PEÇAS:
+        # pergunta curta para descrição do problema ou da peça procurada.
+        if tipo_atendimento in ("servico", "peca"):
+            estado["etapa"] = "descricao_simples"
+            if tipo_atendimento == "servico":
+                return _send_text(
+                    contato,
+                    "Pra eu te ajudar mais rápido, descreva o *problema do veículo* "
+                    "de forma simples e direta, em poucas palavras."
+                )
+            else:  # peca
+                return _send_text(
+                    contato,
+                    "Pra eu te ajudar mais rápido, qual *peça* o senhor procura? "
+                    "Descreva em poucas palavras."
+                )
+
+        # Caso não esteja marcado o tipo por algum motivo, segue direto para data
+        estado["etapa"] = "data"
+        return _send_text(
+            contato,
+            "Qual a *data desejada* para levar o veículo?\n"
+            "(Ex.: 25/11 ou 'próxima terça de manhã')"
+        )
+
+    # 3.1) Descrição simples (serviços / peças)
+    if etapa == "descricao_simples":
+        descricao = texto_str
+        # Limita a 50 caracteres
+        if len(descricao) > 50:
+            descricao = descricao[:50]
+
+        tipo_atendimento = estado.get("tipo")
+        if tipo_atendimento == "servico":
+            dados["descricao_problema_simples"] = descricao
+        elif tipo_atendimento == "peca":
+            dados["descricao_peca_simples"] = descricao
+        else:
+            dados["descricao_geral"] = descricao
+
+        estado["etapa"] = "data"
+        return _send_text(
+            contato,
+            "Qual a *data desejada* para levar o veículo?\n"
+            "(Ex.: 25/11 ou 'próxima terça de manhã')"
+        )
+
+    # 3.2) Problema relatado no Pós-venda
+    if etapa == "problema_posvenda":
+        dados["problema_posvenda"] = texto_str
+        estado["etapa"] = "data_compra"
+        return _send_text(
+            contato,
+            "Qual a *data de compra* do veículo?\n"
+            "(Se não lembrar o dia exato, pode informar mês e ano aproximados.)"
+        )
+
+    # 3.3) Data de compra (Pós-venda)
+    if etapa == "data_compra":
+        dados["data_compra_veiculo"] = texto_str
         estado["etapa"] = "data"
         return _send_text(
             contato,
@@ -373,7 +481,6 @@ def _continuar_fluxo_dados(contato: str, texto: str):
         dados["cpf"] = texto_str
         estado["etapa"] = "nascimento"
         return _send_text(contato, "Informe a *data de nascimento* do responsável (ex.: 10/03/1985):")
-
     # 7) Data de nascimento
     if etapa == "nascimento":
         dados["nascimento"] = texto_str
@@ -497,6 +604,7 @@ def _continuar_fluxo_dados(contato: str, texto: str):
     # Se chegar aqui, algo saiu do fluxo esperado
     ESTADOS_ATENDIMENTO.pop(contato, None)
     return _send_text(contato, "Não entendi muito bem. Envie *oi* para recomeçar, por favor.")
+
 # ===== ROTEADOR GERAL =========================================================
 def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
 
@@ -509,6 +617,9 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
 
     if resposta_id == "op_mais":
         return _send_buttons(contato, "Escolha uma opção 👇", BTN_MAIS)
+
+    if resposta_id == "op_posvenda":
+        return _send_buttons(contato, "Escolha uma opção de pós-venda 👇", BTN_POSVENDA)
 
     # TIPO DE VEÍCULO (Passeio / Utilitário)
     if resposta_id in ("tipo_passeio", "tipo_utilitario"):
@@ -539,11 +650,8 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
         return _send_text(contato, "🛠️ Para garantia, envie: Placa, modelo e problema apresentado.")
 
     if resposta_id == "pos_agendar":
-        return _send_text(
-            contato,
-            "📅 Para agendar um serviço no pós-venda, envie:\n"
-            "• Placa\n• Modelo\n• Serviço desejado\n• Data e período preferidos"
-        )
+        # Fluxo guiado completo de agendamento com coleta de todos os dados
+        return _iniciar_fluxo_posvenda(contato, nome_cliente)
 
     # ENDEREÇOS
     if resposta_id == "op_endereco":
@@ -559,7 +667,6 @@ def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
 
     # NÃO RECONHECIDO
     return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
-
 # ===== FUNÇÃO PRINCIPAL DO CHATBOT ===========================================
 def responder_evento_mensagem(entry: Dict[str, Any]):
     try:
