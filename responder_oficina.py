@@ -33,10 +33,14 @@ OFICINA_SHEET_WEBHOOK_URL = (
     or os.getenv("GOOGLE_SHEETS_WEBHOOK_URL", "").strip()
 )
 
+OFICINA_SHEETS_SECRET = os.getenv("OFICINA_SHEETS_SECRET", "").strip()
+
 print(
     "[INIT] OFICINA_SHEET_WEBHOOK_URL:",
     OFICINA_SHEET_WEBHOOK_URL if OFICINA_SHEET_WEBHOOK_URL else "NÃO DEFINIDA"
 )
+print("[INIT] OFICINA_SHEETS_SECRET definido?:", bool(OFICINA_SHEETS_SECRET))
+
 
 GRAPH_URL = (
     f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
@@ -296,6 +300,8 @@ def salvar_dados_oficina(contato: str, estado: Dict[str, Any]):
     payload = {
         "origem": "chatbot_oficina",
         "timestamp": _hora_sp(),
+        "route": "chatbot",               # rota que o Apps Script espera
+        "secret": OFICINA_SHEETS_SECRET,  # << SEGREDO VAI JUNTO
         "dados": dados,
     }
 
