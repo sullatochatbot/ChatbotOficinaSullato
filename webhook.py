@@ -1,125 +1,114 @@
-# webhook.py — Sullato Oficina e Pós-Venda
-# ================================================================
-# Baseado no modelo da Clínica Luma, agora integrado ao responder_oficina.py
-# ================================================================
+# ============================================================
+# webhook.py — Webhook Oficial Chatbot Oficina Sullato
+# Compatível com responder_oficina.py (nova estrutura)
+# ============================================================
 
-from flask import Flask, request
-import json, os, requests
-import responder_oficina as responder   # ✅ agora usa o responder da OFICINA
-from dotenv import load_dotenv
-from datetime import datetime, timezone, timedelta
+from flask import Flask, request, jsonify
+import requests
+import os
+from datetime import datetime
+import responder_oficina as responder
 
-# === Env ===
-load_dotenv()
 app = Flask(__name__)
 
+# ==========================
+# VARIÁVEIS DE AMBIENTE
+# ==========================
+
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "sullato_token_verificacao")
-ACCESS_TOKEN    = os.getenv("WA_ACCESS_TOKEN") or os.getenv("ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID") or os.getenv("PHONE_NUMBER_ID")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 
-if not VERIFY_TOKEN:
-    print("⚠️ VERIFY_TOKEN não definido no ambiente (.env)")
-if not ACCESS_TOKEN:
-    print("⚠️ WA_ACCESS_TOKEN/ACCESS_TOKEN não definido no ambiente (.env)")
-if not PHONE_NUMBER_ID:
-    print("⚠️ WA_PHONE_NUMBER_ID/PHONE_NUMBER_ID não definido no ambiente (.env)")
+# ==========================
+# LOG
+# ==========================
 
-# === Timezone SP (UTC-3) ===
-TZ_BR = timezone(timedelta(hours=-3))
-def hora_sp() -> str:
-    return datetime.now(TZ_BR).strftime("%Y-%m-%d %H:%M:%S -03:00")
+def hora_sp():
+    return datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S")
 
-# === Anti-duplicação por message.id ===
-PROCESSED_MESSAGE_IDS = set()
-MAX_IDS = 500
-def _mark_processed(ids):
-    global PROCESSED_MESSAGE_IDS
-    for _id in ids:
-        if _id:
-            PROCESSED_MESSAGE_IDS.add(_id)
-    if len(PROCESSED_MESSAGE_IDS) > MAX_IDS:
-        PROCESSED_MESSAGE_IDS = set(list(PROCESSED_MESSAGE_IDS)[-MAX_IDS//2:])
+# ==========================
+# ROTA GET (VERIFICAÇÃO META)
+# ==========================
 
-# === Healthcheck ===
-@app.route("/health", methods=["GET"])
-def health():
-    return {"status": "ok", "time": hora_sp()}, 200
-
-# === GET/POST: webhook ===
-@app.route("/webhook", methods=["GET", "POST"])
-def webhook():
-    if request.method == "GET":
+@app.route("/webhook", methods=["GET"])
+def verificar_meta():
+    try:
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
 
-        print(f"[{hora_sp()}] 📥 Verificação recebida:", mode)
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            print(f"[{hora_sp()}] ✅ Webhook verificado")
+            print(f"[{hora_sp()}] ✔ WEBHOOK VERIFICADO COM SUCESSO!")
             return challenge, 200
-        print(f"[{hora_sp()}] ❌ Token inválido:", token)
-        return "Token inválido", 403
-
-    # POST: eventos do WhatsApp
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        print(f"[{hora_sp()}] === RECEBIDO DO META ===")
-        print(json.dumps(data, indent=2, ensure_ascii=False))
-
-        for entry in data.get("entry", []):
-            changes = entry.get("changes", [])
-            if not changes:
-                continue
-            value = changes[0].get("value", {})
-            contacts = value.get("contacts", [])
-            messages = value.get("messages", [])
-
-            for msg in messages:
-                if msg.get("type") not in ("text", "interactive"):
-                    continue
-                mid = msg.get("id")
-                if not mid:
-                    continue
-                if mid in PROCESSED_MESSAGE_IDS:
-                    print(f"[{hora_sp()}] ↩️ Duplicado ignorado: {mid}")
-                    continue
-                _mark_processed([mid])
-
-                single_entry = {
-                    "changes": [{
-                        "value": {
-                            "messages": [msg],
-                            "contacts": contacts
-                        }
-                    }]
-                }
-                try:
-                    responder.responder_evento_mensagem(single_entry)
-                except Exception as e:
-                    print(f"[{hora_sp()}] ⚠️ Erro no responder_oficina:", e)
+        else:
+            print(f"[{hora_sp()}] ❌ Token inválido na verificação GET")
+            return "Token inválido", 403
 
     except Exception as e:
-        print(f"[{hora_sp()}] ❌ Erro no webhook:", e)
+        print(f"[{hora_sp()}] ❌ Erro na verificação GET:", e)
+        return "erro", 500
 
-    return "EVENT_RECEIVED", 200
+# ==========================
+# ROTA POST (RECEBIMENTO DE EVENTOS)
+# ==========================
 
-# === Envio manual (opcional) ===
-def send_text_message(phone_number, message):
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"}
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": phone_number,
-        "type": "text",
-        "text": {"body": message}
-    }
-    print(f"[{hora_sp()}] 📤 Enviando manual...")
+@app.route("/webhook", methods=["POST"])
+def receber_evento():
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=30)
-        print(f"[{hora_sp()}] 📬 Status:", r.status_code, r.text)
+        dados = request.get_json()
+
+        if not dados:
+            return "no data", 200
+
+        # Structure: entry > changes > value > messages
+        entry = dados.get("entry", [])
+        if not entry:
+            return "ok", 200
+
+        changes = entry[0].get("changes", [])
+        if not changes:
+            return "ok", 200
+
+        value = changes[0].get("value", {})
+        mensagens = value.get("messages", [])
+
+        if not mensagens:
+            return "ok", 200
+
+        msg = mensagens[0]
+
+        fone = msg.get("from")
+        tipo = msg.get("type")
+
+        # ==========================
+        # TEXTO — MENSAGEM DIGITADA
+        # ==========================
+        if tipo == "text":
+            texto = msg["text"]["body"]
+            try:
+                responder.responder_oficina(fone, texto)
+            except Exception as e:
+                print(f"[{hora_sp()}] ⚠ Erro ao processar TEXTO:", e)
+
+        # ==========================
+        # BOTÃO — interactive.button_reply
+        # ==========================
+        elif tipo == "interactive":
+            try:
+                botao = msg["interactive"]["button_reply"]["id"]
+                responder.responder_oficina(fone, "", tipo_botao=botao)
+            except Exception as e:
+                print(f"[{hora_sp()}] ⚠ Erro ao processar BOTÃO:", e)
+
+        return "ok", 200
+
     except Exception as e:
-        print(f"[{hora_sp()}] ❌ Erro ao enviar:", e)
+        print(f"[{hora_sp()}] ❌ ERRO GERAL NO POST:", e)
+        return "erro", 500
+
+# ==========================
+# EXECUTAR LOCAL
+# ==========================
 
 if __name__ == "__main__":
-    print(f"[{hora_sp()}] 🚀 Flask em http://0.0.0.0:5000")
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=8000)
