@@ -661,3 +661,38 @@ def responder_oficina(numero, texto):
 
     # 🔹 Caso contrário → é uma das etapas da PARTE 2
     return processar_mensagem_oficina(numero, texto)
+# ============================================================
+# ADAPTADOR NOVO → antigo (chamado pelo webhook.py)
+# ============================================================
+
+def responder_evento_mensagem(data):
+    try:
+        change = data["changes"][0]["value"]
+        messages = change.get("messages", [])
+        contacts = change.get("contacts", [])
+
+        if not messages:
+            return
+
+        msg = messages[0]
+
+        # Número do cliente
+        numero = contacts[0].get("wa_id") or msg.get("from")
+
+        # Texto digitado OU botão clicado
+        if msg.get("type") == "text":
+            texto = msg["text"]["body"]
+
+        elif msg.get("type") == "interactive":
+            if "button_reply" in msg["interactive"]:
+                texto = msg["interactive"]["button_reply"]["id"]
+            else:
+                texto = ""
+        else:
+            return
+
+        # Chama o fluxo principal
+        responder_oficina(numero, texto)
+
+    except Exception as e:
+        print("❌ Erro em responder_evento_mensagem:", e)
