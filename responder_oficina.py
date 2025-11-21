@@ -12,9 +12,9 @@ from urllib.parse import urlencode
 # ---------------------------------------------
 # Configurações (pegas do .env)
 # ---------------------------------------------
-WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
-WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
-GOOGLE_SHEETS_URL = os.getenv("GOOGLE_SHEETS_URL")  # URL do Apps Script
+WHATSAPP_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
+GOOGLE_SHEETS_URL = os.getenv("OFICINA_SHEET_WEBHOOK_URL")
 SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
 
 # ---------------------------------------------
