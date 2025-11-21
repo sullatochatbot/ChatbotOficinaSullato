@@ -1,722 +1,663 @@
-# responder_oficina.py — Sullato Oficina e Pós-Venda
-# ================================================================
-# Estrutura baseada no chatbot da Clínica Luma, adaptada para o setor automotivo.
-# ================================================================
+# ============================================================
+# responder_oficina.py — NOVA ESTRUTURA PROFISSIONAL
+# Coleta completa de dados → escolha do atendimento → resumo → salvar
+# ============================================================
 
-import os, json, requests
+import requests
+import json
+import os
 from datetime import datetime
-from zoneinfo import ZoneInfo
-from typing import Dict, Any, List
+from urllib.parse import urlencode
 
-# ===== Estado de atendimento por contato =========================
-ESTADOS_ATENDIMENTO: Dict[str, Dict[str, Any]] = {}
+# ---------------------------------------------
+# Configurações (pegas do .env)
+# ---------------------------------------------
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+GOOGLE_SHEETS_URL = os.getenv("GOOGLE_SHEETS_URL")  # URL do Apps Script
+SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
 
-# ===== Variáveis de ambiente ====================================
-WA_ACCESS_TOKEN    = os.getenv("WA_ACCESS_TOKEN", "").strip() or os.getenv("ACCESS_TOKEN", "").strip()
-WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID", "").strip() or os.getenv("PHONE_NUMBER_ID", "").strip()
-
-NOME_EMPRESA = os.getenv("NOME_EMPRESA", "Sullato Oficina e Peças").strip()
-LINK_SITE    = os.getenv("LINK_SITE", "https://www.sullato.com.br").strip()
-
-LINK_INSTAGRAM_MICROS   = os.getenv(
-    "LINK_INSTAGRAM_MICROS",
-    "https://www.instagram.com/sullatomicrosevans"
-).strip()
-LINK_INSTAGRAM_VEICULOS = os.getenv(
-    "LINK_INSTAGRAM_VEICULOS",
-    "https://www.instagram.com/sullato.veiculos"
-).strip()
-
-# URL do Apps Script / API que grava na planilha da Oficina
-OFICINA_SHEET_WEBHOOK_URL = (
-    os.getenv("OFICINA_SHEET_WEBHOOK_URL", "").strip()
-    or os.getenv("GOOGLE_SHEETS_WEBHOOK_URL", "").strip()
-)
-
-OFICINA_SHEETS_SECRET = os.getenv("OFICINA_SHEETS_SECRET", "").strip()
-
-print(
-    "[INIT] OFICINA_SHEET_WEBHOOK_URL:",
-    OFICINA_SHEET_WEBHOOK_URL if OFICINA_SHEET_WEBHOOK_URL else "NÃO DEFINIDA"
-)
-print("[INIT] OFICINA_SHEETS_SECRET definido?:", bool(OFICINA_SHEETS_SECRET))
-
-
-GRAPH_URL = (
-    f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
-    if WA_PHONE_NUMBER_ID else ""
-)
-HEADERS = {
-    "Authorization": f"Bearer {WA_ACCESS_TOKEN}",
-    "Content-Type": "application/json",
-}
-
-# ===== Funções utilitárias ====================================================
-def _hora_sp():
-    return datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d %H:%M:%S")
-
-def _send_text(to: str, text: str):
-    """Envia mensagens de texto no WhatsApp."""
-    if not GRAPH_URL or not WA_ACCESS_TOKEN:
-        print("[WARN] GRAPH_URL ou WA_ACCESS_TOKEN não configurados.")
-        return
+# ---------------------------------------------
+# Função base para enviar mensagens pelo WhatsApp API
+# ---------------------------------------------
+def enviar_whatsapp(numero, mensagem):
+    url = f"https://graph.facebook.com/v17.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json"
+    }
     payload = {
         "messaging_product": "whatsapp",
-        "to": to,
+        "to": numero,
         "type": "text",
-        "text": {"preview_url": False, "body": text[:4096]}
+        "text": {"body": mensagem}
     }
     try:
-        r = requests.post(GRAPH_URL, headers=HEADERS, json=payload, timeout=30)
-        print("[WA TEXT]", r.status_code, r.text[:200])
+        requests.post(url, headers=headers, json=payload)
     except Exception as e:
-        print("[ERRO _send_text]", e)
+        print("Erro ao enviar mensagem:", e)
 
-def _send_buttons(to: str, body: str, buttons: List[Dict[str, str]]):
-    """Envia botões interativos."""
-    if not GRAPH_URL or not WA_ACCESS_TOKEN:
-        print("[WARN] GRAPH_URL ou WA_ACCESS_TOKEN não configurados.")
-        return
+# ---------------------------------------------
+# Função para enviar botões
+# ---------------------------------------------
+def enviar_botoes(numero, texto, botoes):
+    url = f"https://graph.facebook.com/v17.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    components = []
+
+    for b in botoes:
+        components.append({
+            "type": "button",
+            "button": {
+                "type": "reply",
+                "reply": {"id": b["id"], "title": b["title"]}
+            }
+        })
+
     payload = {
         "messaging_product": "whatsapp",
-        "to": to,
+        "to": numero,
         "type": "interactive",
         "interactive": {
             "type": "button",
-            "body": {"text": body[:1024]},
-            "action": {"buttons": [{"type": "reply", "reply": b} for b in buttons[:3]]}
+            "body": {"text": texto},
+            "action": {"buttons": components}
         }
     }
-    try:
-        r = requests.post(GRAPH_URL, headers=HEADERS, json=payload, timeout=30)
-        print("[WA BUTTONS]", r.status_code, r.text[:200])
-    except Exception as e:
-        print("[ERRO _send_buttons]", e)
-
-# ===== Boas-vindas ============================================================
-def msg_boas_vindas(nome=None):
-    nome_fmt = nome or ""
-    saudacao = f"Olá {nome_fmt}," if nome_fmt else "Olá,"
-    return (
-        f"{saudacao} 👋\n"
-        f"Bem-vindo(a) à *{NOME_EMPRESA}*! 🚗🔧\n\n"
-        "Aqui você agenda serviços, adquire peças e acessórios, fala com o pós-venda e muito mais.\n\n"
-        "Escolha abaixo como deseja seguir:"
-    )
-
-# ===== Botões principais ======================================================
-BTN_ROOT = [
-    {"id": "op_servicos", "title": "Serviços"},
-    {"id": "op_pecas", "title": "Peças"},
-    {"id": "op_mais", "title": "Mais opções"},
-]
-
-BTN_MAIS = [
-    {"id": "op_posvenda", "title": "Pós-venda"},
-    {"id": "op_endereco", "title": "Endereço"},
-    {"id": "op_voltar", "title": "Voltar ao início"},
-]
-
-BTN_ENDERECOS = [
-    {"id": "end_loja", "title": "📍 Lojas"},
-    {"id": "end_oficina", "title": "🔧 Oficina e Peças"},
-    {"id": "op_voltar", "title": "Voltar"},
-]
-
-BTN_POSVENDA = [
-    {"id": "pos_garantia", "title": "Garantia"},
-    {"id": "pos_agendar", "title": "Agendar Serviço"},
-    {"id": "op_voltar", "title": "Voltar"},
-]
-
-# Botões de tipo de veículo (única etapa com botões no fluxo de dados)
-BTN_TIPO_VEICULO = [
-    {"id": "tipo_passeio",    "title": "Passeio"},
-    {"id": "tipo_utilitario", "title": "Utilitário"},
-]
-
-MSG_ENDERECOS = (
-    "🏠 *Endereços Sullato*\n\n"
-    "📍 *Sullato Micros e Vans*\n"
-    "Av. São Miguel, 7900 – CEP 08070-001\n"
-    "☎️ (11) 2030-5081 / (11) 94054-5704\n"
-    "👉 https://wa.me/551120305081\n"
-    "👉 https://wa.me/5511940545704\n\n"
-    "📍 *Sullato Veículos*\n"
-    "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
-    "☎️ (11) 2542-3332 / (11) 94054-5704\n"
-    "👉 https://wa.me/551125423332\n"
-    "👉 https://wa.me/5511940545704\n\n"
-    "📍 *Sullato Oficina e Peças*\n"
-    "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
-    "☎️ (11) 2542-3333\n"
-    "👉 https://wa.me/551125423333\n\n"
-    f"🌐 *Site:* {LINK_SITE}\n\n"
-    f"📸 *Instagram Micros e Vans:* {LINK_INSTAGRAM_MICROS}\n"
-    f"📸 *Instagram Veículos:* {LINK_INSTAGRAM_VEICULOS}\n"
-)
-
-# ===== Listas de serviços e peças ============================================
-SERVICOS_DISPONIVEIS = [
-    "Revisão completa",
-    "Troca de óleo",
-    "Freios e suspensão",
-    "Correia dentada",
-    "Motor e embreagem",
-    "Elétrica e injeção",
-    "Outros serviços"
-]
-
-PECAS_DISPONIVEIS = [
-    "Filtros (óleo, ar, combustível)",
-    "Pastilhas de freio",
-    "Amortecedores",
-    "Correia dentada",
-    "Velas e cabos",
-    "Bateria e elétrica",
-    "Outras peças"
-]
-
-# ===== MENU: SERVIÇOS =========================================================
-def _menu_servicos(contato: str):
-    texto = (
-        "🧰 *Serviços disponíveis:*\n\n"
-        "Selecione o tipo de serviço que deseja realizar 👇"
-    )
-    botoes = [{"id": f"serv_{i}", "title": nome} for i, nome in enumerate(SERVICOS_DISPONIVEIS[:3])]
-    botoes.append({"id": "serv_mais", "title": "Mais opções"})
-    _send_buttons(contato, texto, botoes)
-
-# ===== MENU: PEÇAS ============================================================
-def _menu_pecas(contato: str):
-    texto = (
-        "🔩 *Peças disponíveis:*\n\n"
-        "Selecione o tipo de peça que deseja 👇"
-    )
-    botoes = [{"id": f"peca_{i}", "title": nome} for i, nome in enumerate(PECAS_DISPONIVEIS[:3])]
-    botoes.append({"id": "peca_mais", "title": "Mais opções"})
-    _send_buttons(contato, texto, botoes)
-
-# ===== EXPANSÃO “MAIS OPÇÕES” =================================================
-def _menu_servicos_mais(contato: str):
-    botoes = [{"id": f"serv_{i+3}", "title": n} for i, n in enumerate(SERVICOS_DISPONIVEIS[3:6])]
-    botoes.append({"id": "op_voltar", "title": "Voltar"})
-    _send_buttons(contato, "Outros serviços 👇", botoes)
-
-def _menu_pecas_mais(contato: str):
-    botoes = [{"id": f"peca_{i+3}", "title": n} for i, n in enumerate(PECAS_DISPONIVEIS[3:6])]
-    botoes.append({"id": "op_voltar", "title": "Voltar"})
-    _send_buttons(contato, "Outras peças 👇", botoes)
-
-# ===== PROCESSA ESCOLHA DE SERVIÇO / PEÇA ====================================
-def _processar_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
-    if resposta_id.startswith("serv_"):
-        indice = int(resposta_id.split("_")[1])
-        descricao = SERVICOS_DISPONIVEIS[indice]
-        _iniciar_fluxo_dados(contato, "servico", nome_cliente, descricao)
-        return
-
-    if resposta_id.startswith("peca_"):
-        indice = int(resposta_id.split("_")[1])
-        descricao = PECAS_DISPONIVEIS[indice]
-        _iniciar_fluxo_dados(contato, "peca", nome_cliente, descricao)
-        return
-
-# ===== INICIA O FLUXO DE PERGUNTAS ===========================================
-def _iniciar_fluxo_dados(contato: str, tipo: str, nome_cliente: str, descricao: str):
-    cabecalho = (
-        f"✅ *Serviço selecionado:* {descricao}"
-        if tipo == "servico"
-        else f"✅ *Peça selecionada:* {descricao}"
-    )
-
-    ESTADOS_ATENDIMENTO[contato] = {
-        "etapa": "tipo_veiculo",
-        "tipo": tipo,              # servico ou peca
-        "descricao": descricao,    # nome do serviço/peça
-        "nome": nome_cliente or "",
-        "dados": {}
-    }
-
-    texto = (
-        f"{cabecalho}\n\n"
-        "Para começar, escolha o *tipo de veículo* 👇"
-    )
-    _send_buttons(contato, texto, BTN_TIPO_VEICULO)
-
-def _iniciar_fluxo_posvenda(contato: str, nome_cliente: str):
-    """
-    Fluxo específico de Pós-venda (Agendar Serviço).
-    Reaproveita o mesmo fluxo base de dados da oficina, mas marcado como tipo 'posvenda'.
-    """
-    ESTADOS_ATENDIMENTO[contato] = {
-        "etapa": "tipo_veiculo",
-        "tipo": "posvenda",  # tipo especial para pós-venda
-        "descricao": "Pós-venda (agendamento)",
-        "nome": nome_cliente or "",
-        "dados": {},
-    }
-
-    texto = (
-        "🛠️ *Pós-venda Sullato*\\n\\n"
-        "Vamos te ajudar com o seu atendimento de pós-venda.\\n"
-        "Para começar, escolha o *tipo de veículo* 👇"
-    )
-    _send_buttons(contato, texto, BTN_TIPO_VEICULO)
-# ===== HELPERS: ORIGEM, RESUMO E SALVAR PLANILHA =============================
-def _perguntar_origem(contato: str):
-    texto = (
-        "De onde nos conheceu? Responda apenas com o *número* da opção:\n\n"
-        "1) Instagram\n"
-        "2) Google\n"
-        "3) Indicação\n"
-        "4) Panfleto\n"
-        "5) Outro"
-    )
-    _send_text(contato, texto)
-
-def _montar_resumo(contato: str, estado: Dict[str, Any]) -> str:
-    dados = estado.get("dados", {})
-
-    tipo_raw = estado.get("tipo")
-    if tipo_raw == "servico":
-        tipo = "Serviço"
-    elif tipo_raw == "peca":
-        tipo = "Peça"
-    elif tipo_raw == "posvenda":
-        tipo = "Pós-venda"
-    else:
-        tipo = "Atendimento"
-
-    descricao = estado.get("descricao", "")
-
-    def g(chave, padrao: str = ""):
-        return dados.get(chave, padrao)
-
-    return (
-        "👍 *Confira se os dados estão corretos:*\n\n"
-        f"*{tipo}:* {descricao}\n"
-        f"*Tipo de veículo:* {g('tipo_veiculo')}\n"
-        f"*Placa:* {g('placa')}\n"
-        f"Marca/Modelo: {dados.get('marca_modelo','')}\n"
-        f"*Ano fab/Modelo:* {g('ano_modelo')}\n"
-        f"*Quilometragem:* {g('km')}\n"
-        f"*Descrição problema (serviço):* {g('descricao_problema_simples')}\n"
-        f"*Descrição peça:* {g('descricao_peca_simples')}\n"
-        f"*Problema (pós-venda):* {g('problema_posvenda')}\n"
-        f"*Data de compra do veículo:* {g('data_compra_veiculo')}\n"
-        f"*Data desejada:* {g('data_desejada')}\n"
-        f"*Responsável:* {g('nome_responsavel')}\n"
-        f"*CPF:* {g('cpf')}\n"
-        f"*Nascimento:* {g('nascimento')}\n"
-        f"*CEP:* {g('cep')}\n"
-        f"*Número:* {g('numero')}\n"
-        f"*Complemento:* {g('complemento')}\n"
-        f"*Origem:* {g('origem_cliente')}\n"
-        f"*Código panfleto:* {g('panfleto_codigo', '-')}\n"
-        f"*Origem (outro):* {g('origem_outro_texto', '-')}\n"
-        f"*Sugestão/observação:* {g('sugestao_servico')}\n\n"
-        "Se estiver tudo certo, responda *1 para CONFIRMAR*.\n"
-        "Se quiser refazer, responda *2*."
-    )
-
-def salvar_dados_oficina(contato: str, estado: Dict[str, Any]):
-    """
-    Envia os dados para a planilha da Oficina via Apps Script / Webhook.
-    Basta configurar a variável de ambiente OFICINA_SHEET_WEBHOOK_URL
-    com a URL do seu Apps Script (igual você já usa em outros projetos).
-    """
-    dados = estado.get("dados", {}).copy()
-    dados["fone_cap_chatbot"] = contato
-    dados["servico_ou_peca"] = estado.get("descricao", "")
-    dados["tipo_registro"] = estado.get("tipo", "")
-
-    payload = {
-        "origem": "chatbot_oficina",
-        "timestamp": _hora_sp(),
-        "route": "chatbot",               # rota que o Apps Script espera
-        "secret": OFICINA_SHEETS_SECRET,  # << SEGREDO VAI JUNTO
-        "dados": dados,
-    }
-
-    if not OFICINA_SHEET_WEBHOOK_URL:
-        print("[WARN] OFICINA_SHEET_WEBHOOK_URL não configurada. Dados NÃO foram enviados para a planilha.")
-        print("[DADOS_OFICINA]", json.dumps(payload, ensure_ascii=False))
-        return
 
     try:
-        r = requests.post(OFICINA_SHEET_WEBHOOK_URL, json=payload, timeout=20)
-        print("[SHEETS_OFICINA]", r.status_code, r.text[:300])
+        requests.post(url, headers=headers, json=payload)
     except Exception as e:
-        print("[ERRO salvar_dados_oficina]", e)
+        print("Erro ao enviar botões:", e)
 
-# ===== CONTINUA O FLUXO DE PERGUNTAS =========================================
-def _continuar_fluxo_dados(contato: str, texto: str):
-    estado = ESTADOS_ATENDIMENTO.get(contato)
-    if not estado:
-        return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
+# ---------------------------------------------
+# Estados do fluxo
+# ---------------------------------------------
+ESTADOS = {
+    "INICIO": "inicio",
+    "NOME": "nome",
+    "CPF": "cpf",
+    "NASCIMENTO": "nascimento",
+    "TIPO_VEICULO": "tipo_veiculo",
+    "MARCA_MODELO": "marca_modelo",
+    "ANO_MODELO": "ano_modelo",
+    "KM": "km",
+    "COMBUSTIVEL": "combustivel",
+    "CEP": "cep",
+    "NUMERO": "numero",
+    "COMPLEMENTO": "complemento",
 
-    dados = estado.setdefault("dados", {})
-    etapa = estado.get("etapa")
-    texto_str = texto.strip()
-    texto_lower = texto_str.lower()
+    # Escolha do atendimento
+    "MENU_ATENDIMENTO": "menu_atendimento",
 
-    # 1) Placa
-    if etapa == "placa":
-        dados["placa"] = texto_str
-        estado["etapa"] = "marca_modelo"
-        return _send_text(
-            contato,
-            "Informe a *marca/modelo* do veículo (ex.: VW/Amarok, Fiat/Ducato, Renault/Master):"
+    # Fluxo — Serviços
+    "SERVICO_DESCRICAO": "servico_descricao",
+
+    # Fluxo — Peças
+    "PECA_DESCRICAO": "peca_descricao",
+
+    # Fluxo — Pós-venda
+    "POSVENDA_DATA": "posvenda_data",
+    "POSVENDA_PROBLEMA": "posvenda_problema",
+
+    # Fluxo — Retorno
+    "RETORNO_DATA": "retorno_data",
+    "RETORNO_OS": "retorno_os",
+    "RETORNO_PROBLEMA": "retorno_problema",
+
+    # Finalização
+    "CONFIRMACAO": "confirmacao"
+}
+
+# ---------------------------------------------
+# Memória temporária para cada usuário 👇
+# ---------------------------------------------
+usuarios = {}
+
+def obter_usuario(numero):
+    if numero not in usuarios:
+        usuarios[numero] = {
+            "estado": ESTADOS["INICIO"],
+            "dados": {}
+        }
+    return usuarios[numero]
+# ============================================================
+# PARTE 2 — Fluxo de perguntas iniciais (dados pessoais + veículo + endereço)
+# ============================================================
+
+def processar_mensagem_oficina(numero, texto):
+    user = obter_usuario(numero)
+    estado = user["estado"]
+    dados = user["dados"]
+
+    texto = texto.strip()
+
+    # ---------------------------------------------------------
+    # ESTADO: INICIO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["INICIO"]:
+        enviar_whatsapp(numero,
+            "Olá! 😊\n\n"
+            "Sou o assistente da *Sullato Oficina* e vou agilizar o seu atendimento.\n"
+            "Vamos começar com alguns dados importantes.\n\n"
+            "👉 *Qual o seu nome completo?*"
         )
+        user["estado"] = ESTADOS["NOME"]
+        return
 
-    # Marca/Modelo
-    if etapa == "marca_modelo":
-        dados["marca_modelo"] = texto_str
-        estado["etapa"] = "ano_modelo"
-        return _send_text(contato, "Informe o *ano/modelo* (ex.: 2018/2019):")
-
-    # 2) Ano/Modelo
-    if etapa == "ano_modelo":
-        dados["ano_modelo"] = texto_str
-        estado["etapa"] = "km"
-        return _send_text(contato, "Informe a *quilometragem aproximada* (ex.: 85.000 km):")
-
-    # 3) Quilometragem
-    if etapa == "km":
-        dados["km"] = texto_str
-
-        tipo_atendimento = estado.get("tipo")
-
-        # Fluxo específico de PÓS-VENDA:
-        # depois da quilometragem perguntamos o problema e a data de compra.
-        if tipo_atendimento == "posvenda":
-            estado["etapa"] = "problema_posvenda"
-            return _send_text(
-                contato,
-                "Descreva de forma simples e direta o *problema que o veículo está apresentando*:"
-            )
-
-        # Fluxo de SERVIÇOS / PEÇAS:
-        # pergunta curta para descrição do problema ou da peça procurada.
-        if tipo_atendimento in ("servico", "peca"):
-            estado["etapa"] = "descricao_simples"
-            if tipo_atendimento == "servico":
-                return _send_text(
-                    contato,
-                    "Pra eu te ajudar mais rápido, descreva o *problema do veículo* "
-                    "de forma simples e direta, em poucas palavras."
-                )
-            else:  # peca
-                return _send_text(
-                    contato,
-                    "Pra eu te ajudar mais rápido, qual *peça* o senhor procura? "
-                    "Descreva em poucas palavras."
-                )
-
-        # Caso não esteja marcado o tipo por algum motivo, segue direto para data
-        estado["etapa"] = "data"
-        return _send_text(
-            contato,
-            "Qual a *data desejada* para levar o veículo?\n"
-            "(Ex.: 25/11 ou 'próxima terça de manhã')"
+    # ---------------------------------------------------------
+    # ESTADO: NOME
+    # ---------------------------------------------------------
+    if estado == ESTADOS["NOME"]:
+        dados["nome"] = texto
+        enviar_whatsapp(numero,
+            "Perfeito! 👍\n\n"
+            "Agora digite seu *CPF* no formato:\n"
+            "👉 123.456.789-00"
         )
+        user["estado"] = ESTADOS["CPF"]
+        return
 
-    # 3.1) Descrição simples (serviços / peças)
-    if etapa == "descricao_simples":
-        descricao = texto_str
-        # Limita a 50 caracteres
-        if len(descricao) > 50:
-            descricao = descricao[:50]
+    # ---------------------------------------------------------
+    # ESTADO: CPF
+    # ---------------------------------------------------------
+    if estado == ESTADOS["CPF"]:
+        dados["cpf"] = texto
+        enviar_whatsapp(numero,
+            "Ótimo! 🙌\n\n"
+            "Digite agora sua *data de nascimento* no formato:\n"
+            "👉 17/02/1975"
+        )
+        user["estado"] = ESTADOS["NASCIMENTO"]
+        return
 
-        tipo_atendimento = estado.get("tipo")
-        if tipo_atendimento == "servico":
-            dados["descricao_problema_simples"] = descricao
-        elif tipo_atendimento == "peca":
-            dados["descricao_peca_simples"] = descricao
+    # ---------------------------------------------------------
+    # ESTADO: NASCIMENTO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["NASCIMENTO"]:
+        dados["nascimento"] = texto
+
+        enviar_botoes(
+            numero,
+            "Qual o *tipo do veículo*?",
+            [
+                {"id": "tipo_passeio", "title": "Passeio"},
+                {"id": "tipo_utilitario", "title": "Utilitário"}
+            ]
+        )
+        user["estado"] = ESTADOS["TIPO_VEICULO"]
+        return
+
+    # ---------------------------------------------------------
+    # ESTADO: TIPO VEÍCULO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["TIPO_VEICULO"]:
+        if texto == "tipo_passeio":
+            dados["tipo_veiculo"] = "Passeio"
+        elif texto == "tipo_utilitario":
+            dados["tipo_veiculo"] = "Utilitário"
         else:
-            dados["descricao_geral"] = descricao
-
-        estado["etapa"] = "data"
-        return _send_text(
-            contato,
-            "Qual a *data desejada* para levar o veículo?\n"
-            "(Ex.: 25/11 ou 'próxima terça de manhã')"
-        )
-
-    # 3.2) Problema relatado no Pós-venda
-    if etapa == "problema_posvenda":
-        dados["problema_posvenda"] = texto_str
-        estado["etapa"] = "data_compra"
-        return _send_text(
-            contato,
-            "Qual a *data de compra* do veículo?\n"
-            "(Se não lembrar o dia exato, pode informar mês e ano aproximados.)"
-        )
-
-    # 3.3) Data de compra (Pós-venda)
-    if etapa == "data_compra":
-        dados["data_compra_veiculo"] = texto_str
-        estado["etapa"] = "data"
-        return _send_text(
-            contato,
-            "Qual a *data desejada* para levar o veículo?\n"
-            "(Ex.: 25/11 ou 'próxima terça de manhã')"
-        )
-
-    # 4) Data desejada
-    if etapa == "data":
-        dados["data_desejada"] = texto_str
-        estado["etapa"] = "nome_responsavel"
-        return _send_text(contato, "Informe o *nome completo do responsável* pelo veículo:")
-
-    # 5) Nome responsável
-    if etapa == "nome_responsavel":
-        dados["nome_responsavel"] = texto_str
-        estado["etapa"] = "cpf"
-        return _send_text(contato, "Agora informe o *CPF* do responsável:")
-
-    # 6) CPF
-    if etapa == "cpf":
-        dados["cpf"] = texto_str
-        estado["etapa"] = "nascimento"
-        return _send_text(contato, "Informe a *data de nascimento* do responsável (ex.: 10/03/1985):")
-    # 7) Data de nascimento
-    if etapa == "nascimento":
-        dados["nascimento"] = texto_str
-        estado["etapa"] = "cep"
-        return _send_text(contato, "Informe o *CEP*:")
-
-    # 8) CEP (planilha preenche o endereço)
-    if etapa == "cep":
-        dados["cep"] = texto_str
-        estado["etapa"] = "numero"
-        return _send_text(contato, "Informe o *número*:")
-
-    # 9) Número
-    if etapa == "numero":
-        dados["numero"] = texto_str
-        estado["etapa"] = "tem_complemento"
-        return _send_text(
-            contato,
-            "O endereço tem *complemento*?\n"
-            "Responda *1 para SIM* ou *2 para NÃO*:"
-        )
-
-    # 10) Tem complemento? (1/2)
-    if etapa == "tem_complemento":
-        if texto_lower in ["1", "sim", "s", "yes", "sim."]:
-            estado["etapa"] = "complemento"
-            return _send_text(contato, "Informe o *complemento* (ex.: ap 12, bloco B):")
-        if texto_lower in ["2", "nao", "não", "n", "no"]:
-            dados["complemento"] = "nenhum"
-            estado["etapa"] = "origem_menu"
-            _perguntar_origem(contato)
+            enviar_whatsapp(numero, "Escolha uma das opções acima.")
             return
-        return _send_text(contato, "Não entendi. Responda *1 para SIM* ou *2 para NÃO*, por favor.")
 
-    # 11) Complemento (se houver)
-    if etapa == "complemento":
-        dados["complemento"] = texto_str
-        estado["etapa"] = "origem_menu"
-        _perguntar_origem(contato)
+        enviar_whatsapp(numero,
+            "Certo! Agora digite a *marca e modelo* do veículo no formato:\n"
+            "👉 VW / Amarok"
+        )
+        user["estado"] = ESTADOS["MARCA_MODELO"]
         return
 
-    # 12) Origem (menu numérico 1..5)
-    if etapa == "origem_menu":
-        mapa_origem = {
-            "1": "Instagram",
-            "2": "Google",
-            "3": "Indicação",
-            "4": "Panfleto",
-            "5": "Outro",
+    # ---------------------------------------------------------
+    # ESTADO: MARCA / MODELO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["MARCA_MODELO"]:
+        dados["marca_modelo"] = texto
+        enviar_whatsapp(numero,
+            "Ótimo! Agora informe o *ano de fabricação/modelo* no formato:\n"
+            "👉 20/21"
+        )
+        user["estado"] = ESTADOS["ANO_MODELO"]
+        return
+
+    # ---------------------------------------------------------
+    # ESTADO: ANO MODELO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["ANO_MODELO"]:
+        dados["ano_modelo"] = texto
+        enviar_whatsapp(numero,
+            "Perfeito! Digite agora a *quilometragem (KM)* do veículo:\n"
+            "👉 Exemplo: 85.000"
+        )
+        user["estado"] = ESTADOS["KM"]
+        return
+
+    # ---------------------------------------------------------
+    # ESTADO: KM
+    # ---------------------------------------------------------
+    if estado == ESTADOS["KM"]:
+        dados["km"] = texto
+
+        enviar_botoes(
+            numero,
+            "Qual o *combustível* do veículo?",
+            [
+                {"id": "c_gasolina", "title": "Gasolina"},
+                {"id": "c_alcool", "title": "Álcool"},
+                {"id": "c_flex", "title": "Flex"},
+                {"id": "c_diesel", "title": "Diesel S10"}
+            ]
+        )
+        user["estado"] = ESTADOS["COMBUSTIVEL"]
+        return
+
+    # ---------------------------------------------------------
+    # ESTADO: COMBUSTÍVEL
+    # ---------------------------------------------------------
+    if estado == ESTADOS["COMBUSTIVEL"]:
+        combustiveis = {
+            "c_gasolina": "Gasolina",
+            "c_alcool": "Álcool",
+            "c_flex": "Flex (Gasolina/Álcool)",
+            "c_diesel": "Diesel S10"
         }
-        escolha = texto_str
-        if escolha not in mapa_origem:
-            return _send_text(contato, "Por favor, responda apenas com um número de *1 a 5*.")
-        dados["origem_cliente"] = mapa_origem[escolha]
 
-        if escolha == "4":
-            estado["etapa"] = "panfleto"
-            return _send_text(contato, "Informe o *código do panfleto* (ex.: P-1234):")
-
-        if escolha == "5":
-            estado["etapa"] = "origem_outro"
-            return _send_text(contato, "Conte rapidamente *de onde nos conheceu*:")
-        
-        # Instagram / Google / Indicação
-        dados["panfleto_codigo"] = ""
-        dados["origem_outro_texto"] = ""
-        estado["etapa"] = "sugestao"
-        return _send_text(
-            contato,
-            "Por fim, deixe alguma *sugestão ou observação* sobre o serviço "
-            "(se não tiver, pode responder 'nenhuma')."
-        )
-
-    # 13) Código do panfleto
-    if etapa == "panfleto":
-        dados["panfleto_codigo"] = texto_str
-        estado["etapa"] = "sugestao"
-        return _send_text(
-            contato,
-            "Por fim, deixe alguma *sugestão ou observação* sobre o serviço "
-            "(se não tiver, pode responder 'nenhuma')."
-        )
-
-    # 14) Origem outro (texto livre)
-    if etapa == "origem_outro":
-        dados["origem_outro_texto"] = texto_str
-        estado["etapa"] = "sugestao"
-        return _send_text(
-            contato,
-            "Por fim, deixe alguma *sugestão ou observação* sobre o serviço "
-            "(se não tiver, pode responder 'nenhuma')."
-        )
-
-    # 15) Sugestão / observação
-    if etapa == "sugestao":
-        dados["sugestao_servico"] = texto_str
-        estado["etapa"] = "confirmacao"
-        resumo = _montar_resumo(contato, estado)
-        return _send_text(contato, resumo)
-
-    # 16) Confirmação final (1 confirma, 2 refaz)
-    if etapa == "confirmacao":
-        if texto_lower in ["1", "sim", "s", "confirmar", "ok", "c", "confirma"]:
-            salvar_dados_oficina(contato, estado)
-            ESTADOS_ATENDIMENTO.pop(contato, None)
-            return _send_text(
-                contato,
-                "Perfeito, seus dados foram *registrados com sucesso* ✅\n"
-                "Em instantes nossa equipe da *Sullato Oficina e Pós-Venda* "
-                "entra em contato com você."
-            )
-        if texto_lower in ["2", "nao", "não", "n", "corrigir", "refazer"]:
-            ESTADOS_ATENDIMENTO.pop(contato, None)
-            return _send_text(
-                contato,
-                "Sem problemas 😉\n"
-                "Se quiser começar de novo, envie *oi*."
-            )
-        return _send_text(contato, "Responda *1 para CONFIRMAR* ou *2 para refazer*, por favor.")
-
-    # Se chegar aqui, algo saiu do fluxo esperado
-    ESTADOS_ATENDIMENTO.pop(contato, None)
-    return _send_text(contato, "Não entendi muito bem. Envie *oi* para recomeçar, por favor.")
-
-# ===== ROTEADOR GERAL =========================================================
-def _rotear_escolha(contato: str, resposta_id: str, nome_cliente: str = ""):
-
-    # BOTÕES PRINCIPAIS
-    if resposta_id == "op_servicos":
-        return _menu_servicos(contato)
-
-    if resposta_id == "op_pecas":
-        return _menu_pecas(contato)
-
-    if resposta_id == "op_mais":
-        return _send_buttons(contato, "Escolha uma opção 👇", BTN_MAIS)
-
-    if resposta_id == "op_posvenda":
-        return _send_buttons(contato, "Escolha uma opção de pós-venda 👇", BTN_POSVENDA)
-
-    # TIPO DE VEÍCULO (Passeio / Utilitário)
-    if resposta_id in ("tipo_passeio", "tipo_utilitario"):
-        estado = ESTADOS_ATENDIMENTO.get(contato)
-        if not estado:
-            return _send_text(contato, "Vamos começar de novo. Envie *oi* para iniciar, por favor.")
-
-        tipo_label = "Passeio" if resposta_id == "tipo_passeio" else "Utilitário"
-        dados = estado.setdefault("dados", {})
-        dados["tipo_veiculo"] = tipo_label
-
-        estado["etapa"] = "placa"
-        return _send_text(contato, "Perfeito! Agora informe a *placa* do veículo:")
-
-    # EXPANSÃO LISTAS
-    if resposta_id == "serv_mais":
-        return _menu_servicos_mais(contato)
-
-    if resposta_id == "peca_mais":
-        return _menu_pecas_mais(contato)
-
-    # ESCOLHA DE SERVIÇO / PEÇA
-    if resposta_id.startswith("serv_") or resposta_id.startswith("peca_"):
-        return _processar_escolha(contato, resposta_id, nome_cliente)
-
-    # PÓS-VENDA
-    if resposta_id == "pos_garantia":
-        return _send_text(contato, "🛠️ Para garantia, envie: Placa, modelo e problema apresentado.")
-
-    if resposta_id == "pos_agendar":
-        # Fluxo guiado completo de agendamento com coleta de todos os dados
-        return _iniciar_fluxo_posvenda(contato, nome_cliente)
-
-    # ENDEREÇOS
-    if resposta_id == "op_endereco":
-        return _send_buttons(contato, MSG_ENDERECOS, BTN_ENDERECOS)
-
-    if resposta_id in ["end_loja", "end_oficina"]:
-        return _send_text(contato, MSG_ENDERECOS)
-
-    # VOLTAR
-    if resposta_id == "op_voltar":
-        ESTADOS_ATENDIMENTO.pop(contato, None)
-        return _send_buttons(contato, msg_boas_vindas(nome_cliente), BTN_ROOT)
-
-    # NÃO RECONHECIDO
-    return _send_text(contato, "Não reconheci. Envie *oi* para começar.")
-# ===== FUNÇÃO PRINCIPAL DO CHATBOT ===========================================
-def responder_evento_mensagem(entry: Dict[str, Any]):
-    try:
-        value = entry["changes"][0]["value"]
-        messages = value.get("messages", [])
-        contacts = value.get("contacts", [])
-
-        if not messages:
+        if texto not in combustiveis:
+            enviar_whatsapp(numero, "Escolha uma opção válida.")
             return
 
-        msg = messages[0]
-        contato = contacts[0].get("wa_id")
-        nome_wa = contacts[0].get("profile", {}).get("name")
+        dados["combustivel"] = combustiveis[texto]
 
-        tipo = msg.get("type")
-        texto, texto_lower, resposta_id = "", "", None
+        enviar_whatsapp(numero,
+            "Agora digite o *CEP* no formato:\n"
+            "👉 08070-001"
+        )
+        user["estado"] = ESTADOS["CEP"]
+        return
 
-        if tipo == "text":
-            texto = msg["text"]["body"]
-            texto_lower = texto.lower().strip()
+    # ---------------------------------------------------------
+    # ESTADO: CEP
+    # ---------------------------------------------------------
+    if estado == ESTADOS["CEP"]:
+        dados["cep"] = texto
 
-        elif tipo == "interactive":
-            inter = msg["interactive"]
-            if inter["type"] == "button_reply":
-                resposta_id = inter["button_reply"]["id"]
-                texto = inter["button_reply"]["title"]
-                texto_lower = texto.lower().strip()
-
-        print(f"[WA OFICINA] Msg de {contato}: {texto} ({resposta_id})")
-
-        # Saudações: sempre reiniciam o fluxo
-        if texto_lower and any(p in texto_lower for p in ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"]):
-            ESTADOS_ATENDIMENTO.pop(contato, None)
-            return _send_buttons(contato, msg_boas_vindas(nome_wa), BTN_ROOT)
-
-        # Se veio de botão, roteia pelos botões
-        if resposta_id:
-            return _rotear_escolha(contato, resposta_id, nome_wa)
-
-        # Se não é botão mas há fluxo em andamento, continua o fluxo de perguntas
-        if ESTADOS_ATENDIMENTO.get(contato):
-            return _continuar_fluxo_dados(contato, texto)
-
-        # Fallback
-        return _send_text(contato, "Envie *oi* para iniciar.")
-    except Exception as e:
-        print("[ERRO responder_evento_mensagem]", e)
+        # Busca automática de endereço
         try:
-            _send_text(contato, "⚠️ Erro temporário. Tente novamente.")
-        except Exception:
-            print("[ERRO responder_evento_mensagem] Falha ao enviar mensagem de erro ao cliente.")
+            via_url = f"https://viacep.com.br/ws/{texto.replace('-', '')}/json/"
+            r = requests.get(via_url).json()
 
-print("✅ responder_oficina.py carregado com sucesso — Sullato Oficina")
+            dados["logradouro"] = r.get("logradouro", "")
+            dados["bairro"] = r.get("bairro", "")
+            dados["cidade"] = r.get("localidade", "")
+            dados["uf"] = r.get("uf", "")
+
+        except:
+            dados["logradouro"] = ""
+            dados["bairro"] = ""
+            dados["cidade"] = ""
+            dados["uf"] = ""
+
+        enviar_whatsapp(numero, "Digite agora o *número* da residência:")
+        user["estado"] = ESTADOS["NUMERO"]
+        return
+
+    # ---------------------------------------------------------
+    # ESTADO: NÚMERO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["NUMERO"]:
+        dados["numero"] = texto
+
+        enviar_botoes(
+            numero,
+            "Possui *complemento*?",
+            [
+                {"id": "comp_sim", "title": "Sim"},
+                {"id": "comp_nao", "title": "Não"}
+            ]
+        )
+        user["estado"] = ESTADOS["COMPLEMENTO"]
+        return
+
+    # ---------------------------------------------------------
+    # ESTADO: COMPLEMENTO
+    # ---------------------------------------------------------
+    if estado == ESTADOS["COMPLEMENTO"]:
+        if texto == "comp_sim":
+            dados["complemento"] = "Sim"
+        elif texto == "comp_nao":
+            dados["complemento"] = "Não"
+        else:
+            enviar_whatsapp(numero, "Escolha uma opção válida.")
+            return
+
+        # APÓS COMPLETAR TODOS OS DADOS → MENU DE SERVIÇOS
+        enviar_botoes(
+            numero,
+            "*Como podemos ajudar hoje?*",
+            [
+                {"id": "menu_servico", "title": "Serviços"},
+                {"id": "menu_peca", "title": "Peças"},
+                {"id": "menu_posvenda", "title": "Pós-venda"},
+                {"id": "menu_retorno", "title": "Retorno"},
+                {"id": "menu_mais", "title": "Mais opções"}
+            ]
+        )
+        user["estado"] = ESTADOS["MENU_ATENDIMENTO"]
+        return
+# ============================================================
+# PARTE 3 — Fluxo de Serviços, Peças, Pós-venda, Retorno e Resumo
+# ============================================================
+
+def montar_resumo(dados):
+    """Gera o texto final de confirmação com todos os dados coletados."""
+
+    resumo = (
+        "📄 *Resumo do atendimento*\n\n"
+        f"👤 *Cliente:* {dados.get('nome')}\n"
+        f"CPF: {dados.get('cpf')}\n"
+        f"Nascimento: {dados.get('nascimento')}\n\n"
+
+        f"🚗 *Veículo*: {dados.get('tipo_veiculo')}\n"
+        f"Modelo: {dados.get('marca_modelo')}\n"
+        f"Ano: {dados.get('ano_modelo')}\n"
+        f"KM: {dados.get('km')}\n"
+        f"Combustível: {dados.get('combustivel')}\n\n"
+
+        f"📍 *Endereço:*\n"
+        f"CEP: {dados.get('cep')}\n"
+        f"Logradouro: {dados.get('logradouro')}\n"
+        f"Nº: {dados.get('numero')}\n"
+        f"Complemento: {dados.get('complemento')}\n"
+        f"Bairro: {dados.get('bairro')}\n"
+        f"Cidade/UF: {dados.get('cidade')} - {dados.get('uf')}\n\n"
+    )
+
+    # Dados específicos do atendimento
+    if dados.get("tipo_registro") == "servico":
+        resumo += f"🔧 *Serviço solicitado:* {dados.get('descricao_servico')}\n"
+
+    elif dados.get("tipo_registro") == "peca":
+        resumo += f"🧩 *Peça solicitada:* {dados.get('descricao_peca')}\n"
+
+    elif dados.get("tipo_registro") == "posvenda":
+        resumo += (
+            f"📦 *Pós-venda:*\n"
+            f"Data da compra: {dados.get('data_compra')}\n"
+            f"Problema relatado: {dados.get('problema_posvenda')}\n"
+        )
+
+    elif dados.get("tipo_registro") == "retorno":
+        resumo += (
+            f"🔁 *Retorno:*\n"
+            f"Data do serviço anterior: {dados.get('retorno_data')}\n"
+            f"OS: {dados.get('retorno_os')}\n"
+            f"Problema relatado: {dados.get('retorno_problema')}\n"
+        )
+
+    resumo += "\nConfirma os dados acima?"
+
+    return resumo
+
+
+# ============================================================
+# MENU ATENDIMENTO
+# ============================================================
+
+def processar_menu_atendimento(numero, texto, user):
+    dados = user["dados"]
+
+    if texto == "menu_servico":
+        dados["tipo_registro"] = "servico"
+        enviar_whatsapp(
+            numero,
+            "Descreva em poucas palavras o *serviço* que você precisa:\n"
+            "Exemplo: 'barulho na suspensão', 'troca de óleo', etc."
+        )
+        user["estado"] = ESTADOS["SERVICO_DESCRICAO"]
+        return
+
+    if texto == "menu_peca":
+        dados["tipo_registro"] = "peca"
+        enviar_whatsapp(
+            numero,
+            "Qual *peça* você está procurando?\n"
+            "Exemplo: amortecedor, pastilha, filtro, etc."
+        )
+        user["estado"] = ESTADOS["PECA_DESCRICAO"]
+        return
+
+    if texto == "menu_posvenda":
+        dados["tipo_registro"] = "posvenda"
+        enviar_whatsapp(numero, "Qual a *data da compra* do veículo?\nExemplo: 12/03/2024")
+        user["estado"] = ESTADOS["POSVENDA_DATA"]
+        return
+
+    if texto == "menu_retorno":
+        dados["tipo_registro"] = "retorno"
+        enviar_whatsapp(numero, "Qual a *data que o serviço foi realizado*?\nExemplo: 08/11/2025")
+        user["estado"] = ESTADOS["RETORNO_DATA"]
+        return
+
+    if texto == "menu_mais":
+        enviar_whatsapp(
+            numero,
+            "Endereços e telefones:\n\n"
+            "📍 *Loja 1*: Av. São Miguel, 7900 — CEP 08070-001\n"
+            "📞 (11) 2030-5081 / (11) 94054-5704\n\n"
+            "📍 *Loja 2*: Av. São Miguel, 4049/4084 — CEP 03871-000\n"
+            "📞 (11) 2030-5081\n\n"
+            "🔧 Oficina Sullato\n"
+            "📍 Rua XXXX, 123 — CEP XXXXX-XXX\n"
+            "📞 (11) 99999-9999"
+        )
+        return
+
+
+# ============================================================
+# FLUXO: SERVIÇOS
+# ============================================================
+
+def fluxo_servico(numero, texto, user):
+    dados = user["dados"]
+    dados["descricao_servico"] = texto
+
+    resumo = montar_resumo(dados)
+    enviar_botoes(
+        numero,
+        resumo,
+        [
+            {"id": "confirmar", "title": "Confirmar"},
+            {"id": "editar", "title": "Editar"}
+        ]
+    )
+
+    user["estado"] = ESTADOS["CONFIRMACAO"]
+
+
+# ============================================================
+# FLUXO: PEÇAS
+# ============================================================
+
+def fluxo_pecas(numero, texto, user):
+    dados = user["dados"]
+    dados["descricao_peca"] = texto
+
+    resumo = montar_resumo(dados)
+    enviar_botoes(
+        numero,
+        resumo,
+        [
+            {"id": "confirmar", "title": "Confirmar"},
+            {"id": "editar", "title": "Editar"}
+        ]
+    )
+
+    user["estado"] = ESTADOS["CONFIRMACAO"]
+
+
+# ============================================================
+# FLUXO: PÓS-VENDA
+# ============================================================
+
+def fluxo_posvenda(numero, texto, user):
+    dados = user["dados"]
+
+    # 1ª pergunta: data da compra
+    if user["estado"] == ESTADOS["POSVENDA_DATA"]:
+        dados["data_compra"] = texto
+        enviar_whatsapp(numero, "Descreva o *problema que ocorreu*:")
+        user["estado"] = ESTADOS["POSVENDA_PROBLEMA"]
+        return
+
+    # 2ª etapa
+    if user["estado"] == ESTADOS["POSVENDA_PROBLEMA"]:
+        dados["problema_posvenda"] = texto
+
+        resumo = montar_resumo(dados)
+        enviar_botoes(
+            numero,
+            resumo,
+            [
+                {"id": "confirmar", "title": "Confirmar"},
+                {"id": "editar", "title": "Editar"}
+            ]
+        )
+        user["estado"] = ESTADOS["CONFIRMACAO"]
+
+
+# ============================================================
+# FLUXO: RETORNO
+# ============================================================
+
+def fluxo_retorno(numero, texto, user):
+    dados = user["dados"]
+
+    # Etapa 1 — data do serviço anterior
+    if user["estado"] == ESTADOS["RETORNO_DATA"]:
+        dados["retorno_data"] = texto
+        enviar_whatsapp(numero, "Qual o *número da OS*?")
+        user["estado"] = ESTADOS["RETORNO_OS"]
+        return
+
+    # Etapa 2 — número OS
+    if user["estado"] == ESTADOS["RETORNO_OS"]:
+        dados["retorno_os"] = texto
+        enviar_whatsapp(numero, "Descreva o *problema ocorrido*:")
+        user["estado"] = ESTADOS["RETORNO_PROBLEMA"]
+        return
+
+    # Etapa 3 — descrição
+    if user["estado"] == ESTADOS["RETORNO_PROBLEMA"]:
+        dados["retorno_problema"] = texto
+
+        resumo = montar_resumo(dados)
+        enviar_botoes(
+            numero,
+            resumo,
+            [
+                {"id": "confirmar", "title": "Confirmar"},
+                {"id": "editar", "title": "Editar"}
+            ]
+        )
+        user["estado"] = ESTADOS["CONFIRMACAO"]
+# ============================================================
+# PARTE 4 — Salvar no Google Sheets + Finalização + Roteamento
+# ============================================================
+
+def salvar_no_sheets(dados):
+    """Envia todos os dados para o Apps Script."""
+    payload = {
+        "route": "chatbot",
+        "secret": SECRET_KEY,
+        "dados": dados
+    }
+
+    try:
+        requests.post(GOOGLE_SHEETS_URL, json=payload)
+    except Exception as e:
+        print("Erro ao enviar para Sheets:", e)
+
+
+def finalizar_atendimento(numero, user):
+    """Mensagem final + salvar + reset"""
+
+    dados = user["dados"]
+
+    salvar_no_sheets(dados)
+
+    enviar_whatsapp(
+        numero,
+        "Tudo certo! 🙌\n\n"
+        "*Seu atendimento foi registrado com sucesso.*\n"
+        "Um técnico da *Sullato Oficina* entrará em contato com você."
+    )
+
+    # reset
+    user["estado"] = ESTADOS["INICIO"]
+    user["dados"] = {}
+
+
+# ============================================================
+# CONFIRMAÇÃO FINAL (confirmar/editar)
+# ============================================================
+
+def processar_confirmacao(numero, texto, user):
+    if texto == "confirmar":
+        finalizar_atendimento(numero, user)
+        return
+
+    if texto == "editar":
+        # volta do zero
+        user["estado"] = ESTADOS["INICIO"]
+        user["dados"] = {}
+
+        enviar_whatsapp(
+            numero,
+            "Ok! Vamos começar novamente.\n\n"
+            "👉 *Qual o seu nome completo?*"
+        )
+        return
+
+    enviar_whatsapp(numero, "Escolha uma opção válida: Confirmar ou Editar.")
+
+
+# ============================================================
+# ROTEADOR PRINCIPAL DO FLUXO (tudo passa por aqui)
+# ============================================================
+
+def responder_oficina(numero, texto):
+    user = obter_usuario(numero)
+    estado = user["estado"]
+
+    # 🔹 Se estamos no MENU_ATENDIMENTO
+    if estado == ESTADOS["MENU_ATENDIMENTO"]:
+        return processar_menu_atendimento(numero, texto, user)
+
+    # 🔹 Fluxo SERVIÇO
+    if estado == ESTADOS["SERVICO_DESCRICAO"]:
+        return fluxo_servico(numero, texto, user)
+
+    # 🔹 Fluxo PEÇAS
+    if estado == ESTADOS["PECA_DESCRICAO"]:
+        return fluxo_pecas(numero, texto, user)
+
+    # 🔹 Fluxo PÓS-VENDA
+    if estado in [ESTADOS["POSVENDA_DATA"], ESTADOS["POSVENDA_PROBLEMA"]]:
+        return fluxo_posvenda(numero, texto, user)
+
+    # 🔹 Fluxo RETORNO
+    if estado in [
+        ESTADOS["RETORNO_DATA"],
+        ESTADOS["RETORNO_OS"],
+        ESTADOS["RETORNO_PROBLEMA"]
+    ]:
+        return fluxo_retorno(numero, texto, user)
+
+    # 🔹 Confirmação
+    if estado == ESTADOS["CONFIRMACAO"]:
+        return processar_confirmacao(numero, texto, user)
+
+    # 🔹 Caso contrário → é uma das etapas da PARTE 2
+    return processar_mensagem_oficina(numero, texto)
