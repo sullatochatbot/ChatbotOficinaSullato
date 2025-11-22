@@ -6,12 +6,11 @@ from responder_oficina import responder_oficina
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-
+ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 
 # ============================================================
-# ENVIO PADRÃO PARA A API DO WHATSAPP
+# ENVIO PARA A API DO WHATSAPP
 # ============================================================
 def enviar_whatsapp(payload):
     import requests
@@ -52,9 +51,8 @@ def enviar_botoes(numero, texto, botoes):
     }
     enviar_whatsapp(payload)
 
-
 # ============================================================
-# VERIFICAÇÃO DO WEBHOOK
+# VERIFICAÇÃO DO WEBHOOK (GET)
 # ============================================================
 @app.route("/webhook", methods=["GET"])
 def verificar():
@@ -66,7 +64,7 @@ def verificar():
 
 
 # ============================================================
-# RECEBIMENTO DE MENSAGENS
+# RECEBIMENTO DAS MENSAGENS (POST)
 # ============================================================
 @app.route("/webhook", methods=["POST"])
 def receber():
@@ -75,10 +73,12 @@ def receber():
 
     try:
         entry = dados.get("entry", [])[0]
-        changes = entry.get("changes", [])[0]
-        value = changes.get("value", {})
+        change = entry.get("changes", [])[0]
+        value = change.get("value", {})
 
-        # ====== CAPTURA DE MENSAGENS (AMBAS AS FORMAS) ======
+        # -------------------------
+        # CAPTURA DE MENSAGENS
+        # -------------------------
         mensagens = value.get("messages") or value.get("mensagens") or []
         if not mensagens:
             return "OK", 200
@@ -86,41 +86,44 @@ def receber():
         msg = mensagens[0]
         numero = msg.get("from")
 
-        # ====== CAPTURA DO NOME ======
-        nome_whatsapp = "Cliente"
+        # -------------------------
+        # NOME DO WHATSAPP
+        # -------------------------
+        nome = "Cliente"
 
-        contacts = value.get("contacts") or value.get("contactos")
-        if contacts:
-            profile = contacts[0].get("profile") or contacts[0].get("perfil")
-            if profile:
-                nome_whatsapp = (
-                    profile.get("name")
-                    or profile.get("Nome")
+        contatos = value.get("contacts") or value.get("contactos")
+        if contatos:
+            perfil = contatos[0].get("profile") or contatos[0].get("perfil")
+            if perfil:
+                nome = (
+                    perfil.get("name")
+                    or perfil.get("Nome")
                     or "Cliente"
                 )
 
-        # ====== TEXTO ======
+        # -------------------------
+        # TRATAMENTO TEXTO
+        # -------------------------
         if msg.get("type") == "text":
-            texto = msg["text"].get("body", "")
-            responder_oficina(numero, texto, nome_whatsapp)
+            texto = msg.get("text", {}).get("body", "")
+            responder_oficina(numero, texto, nome)
             return "OK", 200
 
-        # ====== BOTÃO ======
+        # -------------------------
+        # TRATAMENTO BOTÕES
+        # -------------------------
         if msg.get("type") == "interactive":
-            botao = msg["interactive"].get("button_reply", {})
+            botao = msg.get("interactive", {}).get("button_reply", {})
             botao_id = botao.get("id")
-            responder_oficina(numero, botao_id, nome_whatsapp)
+            responder_oficina(numero, botao_id, nome)
             return "OK", 200
 
         return "OK", 200
 
-    except Exception as erro:
-        print("❌ ERRO NO WEBHOOK:", erro)
+    except Exception as e:
+        print("❌ ERRO NO WEBHOOK:", e)
         return "ERR", 500
 
 
-# ============================================================
-# EXECUÇÃO LOCAL
-# ============================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
