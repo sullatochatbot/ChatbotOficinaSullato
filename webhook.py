@@ -1,114 +1,113 @@
-# ============================================================
-# webhook.py — Webhook Oficial Chatbot Oficina Sullato
-# Compatível com responder_oficina.py (nova estrutura)
-# ============================================================
-
-from flask import Flask, request, jsonify
-import requests
 import os
-from datetime import datetime
-import responder_oficina as responder
+import json
+from flask import Flask, request
+from responder_oficina import responder_oficina  # garantir import correto
 
 app = Flask(__name__)
 
-# ==========================
-# VARIÁVEIS DE AMBIENTE
-# ==========================
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "sullato_token_verificacao")
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 
-# ==========================
-# LOG
-# ==========================
-
-def hora_sp():
-    return datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S")
-
-# ==========================
-# ROTA GET (VERIFICAÇÃO META)
-# ==========================
-
-@app.route("/webhook", methods=["GET"])
-def verificar_meta():
+# ============================================================
+# 🔹 WEBHOOK GET — VERIFICAÇÃO COM META
+# ============================================================
+@app.get("/webhook")
+def verificar_webhook():
     try:
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
 
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            print(f"[{hora_sp()}] ✔ WEBHOOK VERIFICADO COM SUCESSO!")
             return challenge, 200
         else:
-            print(f"[{hora_sp()}] ❌ Token inválido na verificação GET")
             return "Token inválido", 403
 
     except Exception as e:
-        print(f"[{hora_sp()}] ❌ Erro na verificação GET:", e)
-        return "erro", 500
+        print("ERRO WEBHOOK GET:", e)
+        return "Erro interno", 500
 
-# ==========================
-# ROTA POST (RECEBIMENTO DE EVENTOS)
-# ==========================
 
-@app.route("/webhook", methods=["POST"])
-def receber_evento():
+# ============================================================
+# 🔹 WEBHOOK POST — RECEBE MENSAGENS DO WHATSAPP
+# ============================================================
+@app.post("/webhook")
+def receber_mensagem():
     try:
-        dados = request.get_json()
+        data = request.get_json()
 
-        if not dados:
-            return "no data", 200
+        if not data:
+            return "NO JSON", 200
 
-        # Structure: entry > changes > value > messages
-        entry = dados.get("entry", [])
+        entry = data.get("entry", [])
         if not entry:
-            return "ok", 200
+            return "NO ENTRY", 200
 
         changes = entry[0].get("changes", [])
         if not changes:
-            return "ok", 200
+            return "NO CHANGES", 200
 
         value = changes[0].get("value", {})
-        mensagens = value.get("messages", [])
+        messages = value.get("messages", [])
 
-        if not mensagens:
-            return "ok", 200
+        if not messages:
+            return "NO MSG", 200
 
-        msg = mensagens[0]
+        msg = messages[0]
 
+        # ID do telefone do cliente
         fone = msg.get("from")
-        tipo = msg.get("type")
+        if not fone:
+            return "NO FROM", 200
 
-        # ==========================
-        # TEXTO — MENSAGEM DIGITADA
-        # ==========================
-        if tipo == "text":
+        # nome do WhatsApp
+        nome_whatsapp = ""
+        profile = msg.get("profile")
+        if profile and profile.get("name"):
+            nome_whatsapp = profile.get("name")
+        else:
+            nome_whatsapp = "Cliente"
+
+        # Tipo da mensagem
+        msg_type = msg.get("type")
+
+        # ============================
+        # BOTÃO
+        # ============================
+        if msg_type == "interactive":
+            inter = msg.get("interactive", {})
+            botao = inter.get("button_reply") or inter.get("list_reply")
+            if botao:
+                payload = botao.get("id")
+                responder_oficina(fone, nome_whatsapp, "", "botao", payload)
+                return "OK", 200
+
+        # ============================
+        # TEXTO
+        # ============================
+        if msg_type == "text":
             texto = msg["text"]["body"]
-            try:
-                responder.responder_oficina(fone, texto)
-            except Exception as e:
-                print(f"[{hora_sp()}] ⚠ Erro ao processar TEXTO:", e)
+            responder_oficina(fone, nome_whatsapp, texto, "texto", None)
+            return "OK", 200
 
-        # ==========================
-        # BOTÃO — interactive.button_reply
-        # ==========================
-        elif tipo == "interactive":
-            try:
-                botao = msg["interactive"]["button_reply"]["id"]
-                responder.responder_oficina(fone, "", tipo_botao=botao)
-            except Exception as e:
-                print(f"[{hora_sp()}] ⚠ Erro ao processar BOTÃO:", e)
-
-        return "ok", 200
+        return "IGNORED", 200
 
     except Exception as e:
-        print(f"[{hora_sp()}] ❌ ERRO GERAL NO POST:", e)
-        return "erro", 500
+        print("ERRO WEBHOOK POST:", e)
+        return "Erro interno", 500
 
-# ==========================
-# EXECUTAR LOCAL
-# ==========================
 
+# ============================================================
+# 🔹 ROTA TESTE
+# ============================================================
+@app.get("/")
+def home():
+    return "Sullato Oficina — Webhook ativo!", 200
+
+
+# ============================================================
+# 🔹 EXEC LOCAL
+# ============================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
