@@ -23,6 +23,7 @@ def enviar_whatsapp(payload):
     print("🌐 RESPOSTA WHATSAPP:", r.text)
     return r.text
 
+
 def enviar_texto(numero, texto):
     payload = {
         "messaging_product": "whatsapp",
@@ -31,6 +32,7 @@ def enviar_texto(numero, texto):
         "text": {"body": texto}
     }
     enviar_whatsapp(payload)
+
 
 def enviar_botoes(numero, texto, botoes):
     botoes_formatados = [
@@ -59,6 +61,7 @@ def verificar():
     if token == VERIFY_TOKEN:
         return challenge
     return "Token inválido", 403
+
 
 # ============================================================
 # RECEBIMENTO DE MENSAGENS
@@ -89,10 +92,8 @@ def receber():
 
             responder_oficina(
                 numero,
-                nome_whatsapp,
                 texto,
-                "texto",
-                None
+                nome_whatsapp
             )
             return "OK", 200
 
@@ -104,10 +105,8 @@ def receber():
 
             responder_oficina(
                 numero,
-                nome_whatsapp,
                 botao_id,
-                "botao",
-                botao_id
+                nome_whatsapp
             )
             return "OK", 200
 
@@ -117,8 +116,9 @@ def receber():
         print("❌ ERRO:", erro)
         return "ERR", 500
 
+
 # ============================================================
-# EXECUÇÃO LOCAL (Render ignora)
+# EXECUÇÃO LOCAL
 # ============================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
