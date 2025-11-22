@@ -51,8 +51,9 @@ def enviar_botoes(numero, texto, botoes):
     }
     enviar_whatsapp(payload)
 
+
 # ============================================================
-# VERIFICAÇÃO DO WEBHOOK (GET)
+# WEBHOOK - GET
 # ============================================================
 @app.route("/webhook", methods=["GET"])
 def verificar():
@@ -64,7 +65,7 @@ def verificar():
 
 
 # ============================================================
-# RECEBIMENTO DAS MENSAGENS (POST)
+# WEBHOOK - POST
 # ============================================================
 @app.route("/webhook", methods=["POST"])
 def receber():
@@ -72,26 +73,35 @@ def receber():
     print("📥 RECEBIDO:", json.dumps(dados, indent=2, ensure_ascii=False))
 
     try:
-        entry = dados.get("entry", [])[0]
-        change = entry.get("changes", [])[0]
-        value = change.get("value", {})
+        # entry OU entrada
+        entry = dados.get("entry") or dados.get("entrada")
+        if not entry:
+            return "OK", 200
+        entry = entry[0]
 
-        # -------------------------
-        # CAPTURA DE MENSAGENS
-        # -------------------------
+        # changes OU mudanças
+        change = entry.get("changes") or entry.get("mudanças")
+        if not change:
+            return "OK", 200
+        change = change[0]
+
+        # value OU valor
+        value = change.get("value") or change.get("valor") or {}
+
+        # messages OU mensagens
         mensagens = value.get("messages") or value.get("mensagens") or []
         if not mensagens:
             return "OK", 200
 
         msg = mensagens[0]
-        numero = msg.get("from")
 
-        # -------------------------
-        # NOME DO WHATSAPP
-        # -------------------------
+        # telefone
+        numero = msg.get("from") or msg.get("de")
+
+        # nome do WhatsApp
         nome = "Cliente"
+        contatos = value.get("contacts") or value.get("contactos") or []
 
-        contatos = value.get("contacts") or value.get("contactos")
         if contatos:
             perfil = contatos[0].get("profile") or contatos[0].get("perfil")
             if perfil:
@@ -101,19 +111,24 @@ def receber():
                     or "Cliente"
                 )
 
-        # -------------------------
-        # TRATAMENTO TEXTO
-        # -------------------------
-        if msg.get("type") == "text":
-            texto = msg.get("text", {}).get("body", "")
+        # --------------------------------------------------
+        # TEXTO NORMAL
+        # --------------------------------------------------
+        if msg.get("type") == "text" or msg.get("tipo") == "texto":
+            texto = (
+                msg.get("text", {}).get("body")
+                or msg.get("texto", {}).get("corpo")
+                or ""
+            )
             responder_oficina(numero, texto, nome)
             return "OK", 200
 
-        # -------------------------
-        # TRATAMENTO BOTÕES
-        # -------------------------
-        if msg.get("type") == "interactive":
-            botao = msg.get("interactive", {}).get("button_reply", {})
+        # --------------------------------------------------
+        # BOTÕES
+        # --------------------------------------------------
+        if msg.get("type") == "interactive" or msg.get("tipo") == "interactive":
+            interactive = msg.get("interactive", {})
+            botao = interactive.get("button_reply") or interactive.get("botao_resposta") or {}
             botao_id = botao.get("id")
             responder_oficina(numero, botao_id, nome)
             return "OK", 200
