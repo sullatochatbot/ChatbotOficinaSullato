@@ -6,8 +6,9 @@ from responder_oficina import responder_oficina
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+
 
 # ============================================================
 # ENVIO PADRÃO PARA A API DO WHATSAPP
@@ -51,6 +52,7 @@ def enviar_botoes(numero, texto, botoes):
     }
     enviar_whatsapp(payload)
 
+
 # ============================================================
 # VERIFICAÇÃO DO WEBHOOK
 # ============================================================
@@ -72,48 +74,48 @@ def receber():
     print("📥 RECEBIDO:", json.dumps(dados, indent=2, ensure_ascii=False))
 
     try:
-        entry = dados["entry"][0]
-        changes = entry["changes"][0]
-        value = changes["value"]
+        entry = dados.get("entry", [])[0]
+        changes = entry.get("changes", [])[0]
+        value = changes.get("value", {})
 
-        mensagens = value.get("messages", [])
+        # ====== CAPTURA DE MENSAGENS (AMBAS AS FORMAS) ======
+        mensagens = value.get("messages") or value.get("mensagens") or []
         if not mensagens:
             return "OK", 200
 
         msg = mensagens[0]
-        numero = msg["from"]
-        nome_whatsapp = msg.get("profile", {}).get("name", "Cliente")
+        numero = msg.get("from")
 
-        # ============================
-        # TEXTO
-        # ============================
-        if msg["type"] == "text":
-            texto = msg["text"]["body"]
+        # ====== CAPTURA DO NOME ======
+        nome_whatsapp = "Cliente"
 
-            responder_oficina(
-                numero,
-                texto,
-                nome_whatsapp
-            )
+        contacts = value.get("contacts") or value.get("contactos")
+        if contacts:
+            profile = contacts[0].get("profile") or contacts[0].get("perfil")
+            if profile:
+                nome_whatsapp = (
+                    profile.get("name")
+                    or profile.get("Nome")
+                    or "Cliente"
+                )
+
+        # ====== TEXTO ======
+        if msg.get("type") == "text":
+            texto = msg["text"].get("body", "")
+            responder_oficina(numero, texto, nome_whatsapp)
             return "OK", 200
 
-        # ============================
-        # BOTÃO
-        # ============================
-        if msg["type"] == "interactive":
-            botao_id = msg["interactive"]["button_reply"]["id"]
-
-            responder_oficina(
-                numero,
-                botao_id,
-                nome_whatsapp
-            )
+        # ====== BOTÃO ======
+        if msg.get("type") == "interactive":
+            botao = msg["interactive"].get("button_reply", {})
+            botao_id = botao.get("id")
+            responder_oficina(numero, botao_id, nome_whatsapp)
             return "OK", 200
 
         return "OK", 200
 
     except Exception as erro:
-        print("❌ ERRO:", erro)
+        print("❌ ERRO NO WEBHOOK:", erro)
         return "ERR", 500
 
 
