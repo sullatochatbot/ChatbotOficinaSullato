@@ -7,18 +7,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ============================================================
-# VARIÁVEIS DE AMBIENTE
+# VARIÁVEIS DE AMBIENTE CORRETAS PARA META WHATSAPP
 # ============================================================
 
-WHATSAPP_API_URL = os.getenv("WHATSAPP_API_URL")
-WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
+WHATSAPP_API_URL = f"https://graph.facebook.com/v17.0/{os.getenv('WA_PHONE_NUMBER_ID')}"
+WHATSAPP_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+
 GOOGLE_SHEETS_URL = os.getenv("OFICINA_SHEET_WEBHOOK_URL")
 SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
 
-# Timeout entre mensagens do cliente
-TIMEOUT_SESSAO = 30  # segundos
-
-# Memória de sessão (RAM)
+TIMEOUT_SESSAO = 30
 SESSOES = {}
 
 # ============================================================
