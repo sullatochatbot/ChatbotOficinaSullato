@@ -10,6 +10,14 @@ ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 
 # ============================================================
+# HOME - FIX DO HEALTH CHECK DO RENDER
+# ============================================================
+@app.route("/", methods=["GET"])
+def home():
+    return "OK", 200
+
+
+# ============================================================
 # ENVIO PARA A API DO WHATSAPP
 # ============================================================
 def enviar_whatsapp(payload):
@@ -53,7 +61,7 @@ def enviar_botoes(numero, texto, botoes):
 
 
 # ============================================================
-# WEBHOOK - GET
+# VERIFICAÇÃO - GET /webhook
 # ============================================================
 @app.route("/webhook", methods=["GET"])
 def verificar():
@@ -65,7 +73,7 @@ def verificar():
 
 
 # ============================================================
-# WEBHOOK - POST
+# RECEBIMENTO - POST /webhook
 # ============================================================
 @app.route("/webhook", methods=["POST"])
 def receber():
@@ -128,7 +136,11 @@ def receber():
         # --------------------------------------------------
         if msg.get("type") == "interactive" or msg.get("tipo") == "interactive":
             interactive = msg.get("interactive", {})
-            botao = interactive.get("button_reply") or interactive.get("botao_resposta") or {}
+            botao = (
+                interactive.get("button_reply")
+                or interactive.get("botao_resposta")
+                or {}
+            )
             botao_id = botao.get("id")
             responder_oficina(numero, botao_id, nome)
             return "OK", 200
