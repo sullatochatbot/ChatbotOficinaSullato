@@ -1,152 +1,79 @@
 import os
 import json
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from responder_oficina import responder_oficina
 
 app = Flask(__name__)
 
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
+VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN")
 
-# ============================================================
-# HOME - FIX DO HEALTH CHECK DO RENDER
-# ============================================================
 @app.route("/", methods=["GET"])
 def home():
-    return "OK", 200
-
-
-# ============================================================
-# ENVIO PARA A API DO WHATSAPP
-# ============================================================
-def enviar_whatsapp(payload):
-    import requests
-    url = f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    r = requests.post(url, headers=headers, json=payload)
-    print("🌐 RESPOSTA WHATSAPP:", r.text)
-    return r.text
-
-
-def enviar_texto(numero, texto):
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": numero,
-        "type": "text",
-        "text": {"body": texto}
-    }
-    enviar_whatsapp(payload)
-
-
-def enviar_botoes(numero, texto, botoes):
-    botoes_formatados = [
-        {"type": "reply", "reply": {"id": b["id"], "title": b["title"]}}
-        for b in botoes
-    ]
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": numero,
-        "type": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {"text": texto},
-            "action": {"buttons": botoes_formatados}
-        }
-    }
-    enviar_whatsapp(payload)
-
+    return "ONLINE", 200
 
 # ============================================================
-# VERIFICAÇÃO - GET /webhook
+# VERIFICAÇÃO DO WEBHOOK (META → FLASK)
 # ============================================================
+
 @app.route("/webhook", methods=["GET"])
-def verificar():
+def verificar_token():
+    mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
-    if token == VERIFY_TOKEN:
-        return challenge
+
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        return challenge, 200
+
     return "Token inválido", 403
 
 
 # ============================================================
-# RECEBIMENTO - POST /webhook
+# RECEBIMENTO DE MENSAGENS (WHATSAPP → FLASK)
 # ============================================================
+
 @app.route("/webhook", methods=["POST"])
-def receber():
-    dados = request.get_json()
-    print("📥 RECEBIDO:", json.dumps(dados, indent=2, ensure_ascii=False))
+def receber_mensagem():
+    data = request.get_json()
 
     try:
-        # entry OU entrada
-        entry = dados.get("entry") or dados.get("entrada")
-        if not entry:
-            return "OK", 200
-        entry = entry[0]
+        print("📥 RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
 
-        # changes OU mudanças
-        change = entry.get("changes") or entry.get("mudanças")
-        if not change:
-            return "OK", 200
-        change = change[0]
+        if "entry" in data:
+            for entry in data["entry"]:
+                if "changes" in entry:
+                    for change in entry["changes"]:
+                        value = change.get("value", {})
 
-        # value OU valor
-        value = change.get("value") or change.get("valor") or {}
+                        messages = value.get("messages")
+                        contacts = value.get("contacts")
 
-        # messages OU mensagens
-        mensagens = value.get("messages") or value.get("mensagens") or []
-        if not mensagens:
-            return "OK", 200
+                        if messages and contacts:
 
-        msg = mensagens[0]
+                            mensagem = messages[0]
+                            contato = contacts[0]
 
-        # telefone
-        numero = msg.get("from") or msg.get("de")
+                            numero = contato.get("wa_id")
+                            nome_whatsapp = contato.get("profile", {}).get("name", "Cliente")
 
-        # nome do WhatsApp
-        nome = "Cliente"
-        contatos = value.get("contacts") or value.get("contactos") or []
+                            texto = ""
 
-        if contatos:
-            perfil = contatos[0].get("profile") or contatos[0].get("perfil")
-            if perfil:
-                nome = (
-                    perfil.get("name")
-                    or perfil.get("Nome")
-                    or "Cliente"
-                )
+                            if mensagem.get("type") == "text":
+                                texto = mensagem["text"]["body"]
 
-        # --------------------------------------------------
-        # TEXTO NORMAL
-        # --------------------------------------------------
-        if msg.get("type") == "text" or msg.get("tipo") == "texto":
-            texto = (
-                msg.get("text", {}).get("body")
-                or msg.get("texto", {}).get("corpo")
-                or ""
-            )
-            responder_oficina(numero, texto, nome)
-            return "OK", 200
+                            # BOTÕES (interactive reply)
+                            if mensagem.get("type") == "interactive":
+                                if mensagem["interactive"].get("type") == "button_reply":
+                                    texto = mensagem["interactive"]["button_reply"]["id"]
 
-        # --------------------------------------------------
-        # BOTÕES
-        # --------------------------------------------------
-        if msg.get("type") == "interactive" or msg.get("tipo") == "interactive":
-            interactive = msg.get("interactive", {})
-            botao = (
-                interactive.get("button_reply")
-                or interactive.get("botao_resposta")
-                or {}
-            )
-            botao_id = botao.get("id")
-            responder_oficina(numero, botao_id, nome)
-            return "OK", 200
+                            # ENTREGAR PRO CHATBOT
+                            responder_oficina(numero, texto, nome_whatsapp)
 
-        return "OK", 200
+        return "EVENT_RECEIVED", 200
 
     except Exception as e:
-        print("❌ ERRO NO WEBHOOK:", e)
-        return "ERR", 500
+        print("❌ ERRO NO WEBHOOK:", str(e))
+        return "ERRO", 200
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
