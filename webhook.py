@@ -6,8 +6,8 @@ from responder_oficina import responder_oficina
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 
 # ============================================================
 # ENVIO PADRÃO PARA A API DO WHATSAPP
