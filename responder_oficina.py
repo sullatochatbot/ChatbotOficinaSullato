@@ -287,6 +287,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 {"id": "gnv", "title": "Gasolina/GNV"},
             ]
         )
+        return  # ✅ ESSA LINHA FALTAVA
 
     # ========================================================
     # ETAPA 8 — COMBUSTÍVEL
