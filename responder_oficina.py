@@ -283,12 +283,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 {"id": "gasolina", "title": "Gasolina"},
                 {"id": "alcool", "title": "Álcool"},
                 {"id": "flex", "title": "Flex"},
-                {"id": "diesel", "title": "Diesel S10"},
-                {"id": "diesel", "title": "Gasolina/GNV"},
-
+                {"id": "diesel_s10", "title": "Diesel S10"},
+                {"id": "gnv", "title": "Gasolina/GNV"},
             ]
         )
-        return
 
     # ========================================================
     # ETAPA 8 — COMBUSTÍVEL
@@ -298,7 +296,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         sessao["inicio"] = time.time()
         sessao["etapa"] = "pergunta_placa"
 
-        enviar_mensagem(numero, "Digite a placa do veículo (Ex: ABC1D23):")
+        enviar_texto(numero, "Digite a placa do veículo (Ex: ABC1D23):")
         return
 
     # ========================================================
