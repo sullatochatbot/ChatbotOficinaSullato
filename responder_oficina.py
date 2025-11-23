@@ -272,11 +272,16 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_km":
         d["km"] = texto
 
-        # 🔥 Correção para evitar travamento e pular etapa
-        sessao["inicio"] = time.time()       # <- RESETA O TIMEOUT  
+        # Define próxima etapa
+        d["etapa"] = "pergunta_combustivel"
+        salvar_em_mala_direta(numero, d.get("nome"))
+
+        # Reseta timeout
+        sessao["inicio"] = time.time()
         sessao["etapa"] = "pergunta_combustivel"
 
-        enviar_botoes(
+        # Envia botões de combustível
+        return enviar_botoes(
             numero,
             "Qual o combustível do veículo?",
             [
@@ -286,8 +291,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 {"id": "diesel_s10", "title": "Diesel S10"},
                 {"id": "gnv", "title": "Gasolina/GNV"},
             ]
-        )
-        return  # ✅ ESSA LINHA FALTAVA
+        )   
 
     # ========================================================
     # ETAPA 8 — COMBUSTÍVEL
