@@ -211,7 +211,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_cpf":
         d["cpf"] = texto
         sessao["etapa"] = "pergunta_nascimento"
-        enviar_texto(numero, "Certo! Agora digite *sua data de nascimento* (formato: 17/02/1975):")
+        enviar_texto(numero, "Certo! Agora digite *sua data de nascimento* (formato: 00/00/0000):")
         return
 
     # ========================================================
@@ -245,7 +245,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         sessao["etapa"] = "pergunta_marca_modelo"
         enviar_texto(numero,
             "Informe *marca / modelo* do veículo.\n\n"
-            "Exemplo: VW / Amarok"
         )
         return
 
@@ -255,7 +254,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_marca_modelo":
         d["marca_modelo"] = texto
         sessao["etapa"] = "pergunta_ano_modelo"
-        enviar_texto(numero, "Digite o *ano fab/mod* (Ex: 20/21):")
+        enviar_texto(numero, "Digite o *ano fab/mod* (Ex: 00/00):")
         return
 
     # ========================================================
@@ -264,7 +263,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_ano_modelo":
         d["ano_modelo"] = texto
         sessao["etapa"] = "pergunta_km"
-        enviar_texto(numero, "Digite a *quilometragem atual* (Ex: 85.000):")
+        enviar_texto(numero, "Digite a *quilometragem atual*:")
         return
 
     # ========================================================
@@ -272,7 +271,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ========================================================
     if etapa == "pergunta_km":
         d["km"] = texto
+
+        # 🔥 Correção para evitar travamento e pular etapa
+        sessao["inicio"] = time.time()       # <- RESETA O TIMEOUT  
         sessao["etapa"] = "pergunta_combustivel"
+
         enviar_botoes(
             numero,
             "Qual o combustível do veículo?",
@@ -281,6 +284,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 {"id": "alcool", "title": "Álcool"},
                 {"id": "flex", "title": "Flex"},
                 {"id": "diesel", "title": "Diesel S10"},
+                {"id": "diesel", "title": "Gasolina/GNV"},
+
             ]
         )
         return
@@ -290,8 +295,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ========================================================
     if etapa == "pergunta_combustivel":
         d["combustivel"] = texto
+        sessao["inicio"] = time.time()
         sessao["etapa"] = "pergunta_placa"
-        enviar_texto(numero, "Digite a *placa do veículo* (Ex: ABC1D23):")
+
+        enviar_mensagem(numero, "Digite a placa do veículo (Ex: ABC1D23):")
         return
 
     # ========================================================
@@ -302,7 +309,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         sessao["etapa"] = "pergunta_cep"
         enviar_texto(
             numero,
-            "Agora digite o *CEP* (formato: 08070-001):"
+            "Agora digite o *CEP* (formato: 12345-678):"
         )
         return
 
