@@ -278,18 +278,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         # Reseta timeout
         sessao["inicio"] = time.time()
 
-        # Envia botões de combustível
-        return enviar_botoes(
+        # Pergunta direta (sem botões)
+        enviar_texto(
             numero,
-            "Qual o combustível do veículo?",
-            [
-                {"id": "gasolina", "title": "Gasolina"},
-                {"id": "alcool", "title": "Álcool"},
-                {"id": "flex", "title": "Flex"},
-                {"id": "diesel_s10", "title": "Diesel S10"},
-                {"id": "gnv", "title": "Gasolina/GNV"},
-            ]
-        )   
+            "Qual o combustível do veículo? (Ex: Gasolina, Etanol, Flex, Diesel, GNV)"
+        )
+        return
 
     # ========================================================
     # ETAPA 8 — COMBUSTÍVEL
