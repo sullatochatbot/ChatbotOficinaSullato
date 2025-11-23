@@ -273,12 +273,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["km"] = texto
 
         # Define próxima etapa
-        d["etapa"] = "pergunta_combustivel"
+        sessao["etapa"] = "pergunta_combustivel"
         salvar_em_mala_direta(numero, d.get("nome"))
 
         # Reseta timeout
         sessao["inicio"] = time.time()
-        sessao["etapa"] = "pergunta_combustivel"
 
         # Envia botões de combustível
         return enviar_botoes(
