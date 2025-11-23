@@ -274,7 +274,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         # Define próxima etapa
         sessao["etapa"] = "pergunta_combustivel"
-        salvar_em_mala_direta(numero, d.get("nome"))
 
         # Reseta timeout
         sessao["inicio"] = time.time()
