@@ -1,21 +1,77 @@
+import os
+import json
 import requests
+from dotenv import load_dotenv
 
-ACCESS_TOKEN = "EACPL2cB7rI8BO6JDjf5fk22JSVvKCZAcUnK0MqCIMQ9iGWMpE3tx3PyRZBSH7N604BDTAXIJM3JbJAvCtxMqLUD42b8TZAeNwqOZCNF5E9B3JgFVyRFxnxeUnItO4uzisciOR8huyqzhZAZBLjGGmZBuC5X1ptps2YZCbyPI6cm3ix4EtusOoM837XxWqKQhMU4WC9EywNUHKmYsg4jqp0ps9KMHLwv2ZA9c7vdvygurZBmneNQrwwDqABG3YZD"
-PHONE_NUMBER_ID = "684523561413203"
+# Carrega as variáveis do .env
+load_dotenv()
 
-def enviar_mensagem(telefone, mensagem):
+# Dados do WhatsApp Cloud API
+ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
+
+# ============================================================
+# ENVIAR TEXTO
+# ============================================================
+def enviar_texto(telefone, mensagem):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
+
     payload = {
         "messaging_product": "whatsapp",
         "to": telefone,
         "type": "text",
-        "text": {
-            "body": mensagem
-        }
+        "text": {"body": mensagem},
     }
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
     response = requests.post(url, headers=headers, json=payload)
-    print("Resposta da API:", response.status_code, response.text)
+    print("📩 Enviar texto →", resposta_log(response))
+
+
+# ============================================================
+# ENVIAR BOTÕES INTERATIVOS
+# ============================================================
+def enviar_botoes(telefone, texto, botoes):
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+
+    botoes_formatados = []
+    for btn in botoes:
+        botoes_formatados.append(
+            {
+                "type": "reply",
+                "reply": {"id": btn["id"], "title": btn["title"]},
+            }
+        )
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": telefone,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": texto},
+            "action": {"buttons": botoes_formatados},
+        },
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+    print("📩 Enviar botões →", resposta_log(response))
+
+
+# ============================================================
+# FUNÇÃO DE LOG SIMPLIFICADA
+# ============================================================
+def resposta_log(response):
+    try:
+        return f"{response.status_code} — {response.text}"
+    except:
+        return str(response)
