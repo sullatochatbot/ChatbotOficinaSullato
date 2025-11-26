@@ -76,12 +76,12 @@ def reset_sessao(numero):
         del SESSOES[numero]
 
 # ============================================================
-# INICIAR SESSÃO
+# INICIAR SESSÃO — AGORA COM MENU 1–5
 # ============================================================
 
 def iniciar_sessao(numero, nome_whatsapp):
     SESSOES[numero] = {
-        "etapa": "pergunta_nome",
+        "etapa": "menu_inicial",
         "inicio": time.time(),
         "dados": {
             "fone": numero,
@@ -92,8 +92,13 @@ def iniciar_sessao(numero, nome_whatsapp):
     enviar_texto(
         numero,
         f"Olá {nome_whatsapp}! 👋\n\n"
-        "Vamos iniciar seu atendimento.\n"
-        "Digite *seu nome completo:*"
+        "Vamos iniciar seu atendimento.\n\n"
+        "*Escolha uma opção:*\n"
+        "1 – Serviços\n"
+        "2 – Peças\n"
+        "3 – Pós-venda / Garantia\n"
+        "4 – Retorno Oficina\n"
+        "5 – Endereço"
     )
 
 # ============================================================
@@ -171,14 +176,80 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     etapa = sessao["etapa"]
     d = sessao["dados"]
 
-    # ================================
+    # ============================================================
+    # MENU INICIAL 1–5
+    # ============================================================
+
+    if etapa == "menu_inicial":
+
+        if texto == "1":
+            d["interesse_inicial"] = "servicos"
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
+            return
+
+        if texto == "2":
+            d["interesse_inicial"] = "pecas"
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
+            return
+
+        if texto == "3":
+            d["interesse_inicial"] = "pos_venda"
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
+            return
+
+        if texto == "4":
+            d["interesse_inicial"] = "retorno"
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
+            return
+
+        if texto == "5":
+            d["interesse_inicial"] = "endereco"
+
+            # ENDEREÇOS — MANTIDO EXATAMENTE COMO SEU ARQUIVO
+            enviar_texto(
+                numero,
+                "📍 *Endereços Sullato*\n\n"
+
+                "📍 *Sullato Micros e Vans*\n"
+                "Av. São Miguel, 7900 – CEP 08070-001\n"
+                "☎️ (11) 2030-5081 / (11) 2031-5081\n"
+                "👉 https://wa.me/551120305081\n"
+                "👉 https://wa.me/5511940545704\n"
+                "📸 Instagram: https://www.instagram.com/sullatomicrosevans\n\n"
+
+                "📍 *Sullato Veículos*\n"
+                "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
+                "☎️ (11) 2542-3332 / (11) 2542-3333\n"
+                "👉 https://wa.me/551125423332\n"
+                "👉 https://wa.me/5511940545704\n"
+                "📸 Instagram: https://www.instagram.com/sullato.veiculos\n\n"
+
+                "📍 *Sullato Oficina e Peças*\n"
+                "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
+                "☎️ (11) 2542-3333\n"
+                "👉 https://wa.me/551125423333\n\n"
+
+                "🌐 Site: https://www.sullato.com.br"
+            )
+
+            reset_sessao(numero)
+            return
+
+        enviar_texto(numero, "❗Digite uma opção válida entre 1 e 5.")
+        return
+
+    # ============================================================
     # ETAPAS BÁSICAS — CADASTRO
-    # ================================
+    # ============================================================
 
     if etapa == "pergunta_nome":
         d["nome"] = texto
         sessao["etapa"] = "pergunta_cpf"
-        enviar_texto(numero, "Digite *seu CPF*:")
+        enviar_texto(numero, "Digite *seu CPF*:")  
         return
 
     if etapa == "pergunta_cpf":
@@ -227,7 +298,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_km":
         d["km"] = texto
         sessao["etapa"] = "pergunta_combustivel"
-        sessao["inicio"] = time.time()  # ← ESSENCIAL
+        sessao["inicio"] = time.time()
         enviar_texto(numero, "Combustível (Gasolina / Etanol / Diesel / Flex / GNV):")
         return
 
@@ -268,72 +339,47 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             enviar_texto(numero, "Digite o complemento:")
             return
         d["complemento"] = ""
-        sessao["etapa"] = "pergunta_tipo_atendimento"
-        enviar_botoes(
-            numero,
-            "Qual atendimento você procura?",
-            [
-                {"id": "servico", "title": "Serviços"},
-                {"id": "peca", "title": "Peças"},
-                {"id": "mais", "title": "Mais opções"},
-            ]
-        )
+        sessao["etapa"] = "descricao_especifica"
         return
 
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
-        sessao["etapa"] = "pergunta_tipo_atendimento"
-        enviar_botoes(
-            numero,
-            "Qual atendimento você procura?",
-            [
-                {"id": "servico", "title": "Serviços"},
-                {"id": "peca", "title": "Peças"},
-                {"id": "mais", "title": "Mais opções"},
-            ]
-        )
+        sessao["etapa"] = "descricao_especifica"
         return
 
-    # ================================
-    # ATENDIMENTO PRINCIPAL
-    # ================================
+    # ============================================================
+    # DESCRIÇÃO ESPECÍFICA (SERVIÇO / PEÇA / POS-VENDA / RETORNO)
+    # ============================================================
 
-    if etapa == "pergunta_tipo_atendimento":
+    if etapa == "descricao_especifica":
 
-        # Serviços
-        if texto in ["servico", "Serviços"]:
+        if d["interesse_inicial"] == "servicos":
             d["tipo_registro"] = "Serviço"
             sessao["etapa"] = "descricao_servico"
             enviar_texto(numero, "Descreva o serviço desejado:")
             return
 
-        # Peças
-        if texto in ["peca", "Peças"]:
+        if d["interesse_inicial"] == "pecas":
             d["tipo_registro"] = "Peça"
             sessao["etapa"] = "descricao_peca"
-            enviar_texto(numero, "Descreva a peça desejada:")
+            enviar_texto(numero, "Descreva qual peça você procura:")
             return
 
-        # Submenu extra
-        if texto in ["mais", "Mais opções"]:
-            sessao["etapa"] = "submenu_mais"
-            enviar_botoes(
-                numero,
-                "Mais opções:",
-                [
-                    {"id": "posvenda", "title": "Pós-venda"},
-                    {"id": "retorno", "title": "Retorno Oficina"},
-                    {"id": "end", "title": "Endereço"}
-                ]
-            )
+        if d["interesse_inicial"] == "pos_venda":
+            d["tipo_registro"] = "Pós-venda"
+            sessao["etapa"] = "posvenda_data_compra"
+            enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
             return
 
-        enviar_texto(numero, "Escolha uma opção válida.")
-        return
+        if d["interesse_inicial"] == "retorno":
+            d["tipo_registro"] = "Retorno Oficina"
+            sessao["etapa"] = "retorno_data_servico"
+            enviar_texto(numero, "Qual foi a data do serviço realizado?")
+            return
 
-    # ================================
-    # SERVIÇOS E PEÇAS → ORIGEM
-    # ================================
+    # ============================================================
+    # SERVIÇOS
+    # ============================================================
 
     if etapa == "descricao_servico":
         d["descricao"] = texto
@@ -349,7 +395,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 {"id": "Outros", "title": "Outros"},
             ]
         )
-        sessao["inicio"] = time.time()  # ← ESSENCIAL
         return
 
     if etapa == "servico_origem":
@@ -365,6 +410,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             ]
         )
         return
+
+    # ============================================================
+    # PEÇAS
+    # ============================================================
 
     if etapa == "descricao_peca":
         d["descricao"] = texto
@@ -396,58 +445,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
-    # ================================
+    # ============================================================
     # PÓS-VENDA
-    # ================================
-
-    if etapa == "submenu_mais":
-        if texto in ["posvenda", "Pós-venda"]:
-            d["tipo_registro"] = "Pós-venda"
-            sessao["etapa"] = "posvenda_data_compra"
-            enviar_texto(numero, "Digite a *data da compra*:")
-            return
-
-        if texto in ["retorno", "Retorno Oficina"]:
-            d["tipo_registro"] = "Retorno Oficina"
-            sessao["etapa"] = "retorno_data_servico"
-            enviar_texto(numero, "Digite a *data do serviço*:")
-            return
-
-        if texto in ["end", "Endereço"]:
-            enviar_texto(
-                numero,
-                "📍 *Endereços Sullato*\n\n"
-
-                "📍 *Sullato Micros e Vans*\n"
-                "Av. São Miguel, 7900 – CEP 08070-001\n"
-                "☎️ (11) 2030-5081 / (11) 2031-5081\n"
-                "👉 https://wa.me/551120305081\n"
-                "👉 https://wa.me/5511940545704\n"
-                "📸 Instagram: https://www.instagram.com/sullatomicrosevans\n\n"
-
-                "📍 *Sullato Veículos*\n"
-                "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
-                "☎️ (11) 2542-3332 / (11) 2542-3333\n"
-                "👉 https://wa.me/551125423332\n"
-                "👉 https://wa.me/5511940545704\n"
-                "📸 Instagram: https://www.instagram.com/sullato.veiculos\n\n"
-
-                "📍 *Sullato Oficina e Peças*\n"
-                "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
-                "☎️ (11) 2542-3333\n"
-                "👉 https://wa.me/551125423333\n\n"
-
-                "🌐 Site: https://www.sullato.com.br"
-            )
-            reset_sessao(numero)
-            return
-
-        enviar_texto(numero, "Escolha uma opção válida.")
-        return
-
-    # ================================
-    # PÓS-VENDA FLUXO
-    # ================================
+    # ============================================================
 
     if etapa == "posvenda_data_compra":
         d["data_compra_veiculo"] = texto
@@ -475,9 +475,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
-    # ================================
+    # ============================================================
     # RETORNO OFICINA
-    # ================================
+    # ============================================================
 
     if etapa == "retorno_data_servico":
         d["data_servico"] = texto
@@ -511,9 +511,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
-    # ================================
+    # ============================================================
     # CONFIRMAÇÃO FINAL
-    # ================================
+    # ============================================================
 
     if etapa == "confirmacao":
 
@@ -535,12 +535,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         enviar_texto(numero, "Escolha uma opção válida.")
         return
 
-    # ================================
+    # ============================================================
     # FORA DO FLUXO
-    # ================================
+    # ============================================================
 
     enviar_texto(
         numero,
-    "   Não entendi sua resposta. Escolha uma opção válida 🙂"
+        "   Não entendi sua resposta. Escolha uma opção válida 🙂"
     )
     return
