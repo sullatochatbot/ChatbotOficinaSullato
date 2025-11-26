@@ -353,25 +353,25 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "descricao_especifica":
 
-        if d["interesse_inicial"] == "servicos":
+        if d.get("interesse_inicial") == "servicos":
             d["tipo_registro"] = "Serviço"
             sessao["etapa"] = "descricao_servico"
             enviar_texto(numero, "Descreva o serviço desejado:")
             return
 
-        if d["interesse_inicial"] == "pecas":
+        if d.get("interesse_inicial") == "pecas":
             d["tipo_registro"] = "Peça"
             sessao["etapa"] = "descricao_peca"
             enviar_texto(numero, "Descreva qual peça você procura:")
             return
 
-        if d["interesse_inicial"] == "pos_venda":
+        if d.get("interesse_inicial") == "pos_venda":
             d["tipo_registro"] = "Pós-venda"
             sessao["etapa"] = "posvenda_data_compra"
             enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
             return
 
-        if d["interesse_inicial"] == "retorno":
+        if d.get("interesse_inicial") == "retorno":
             d["tipo_registro"] = "Retorno Oficina"
             sessao["etapa"] = "retorno_data_servico"
             enviar_texto(numero, "Qual foi a data do serviço realizado?")
