@@ -415,12 +415,27 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             enviar_texto(
                 numero,
                 "📍 *Endereços Sullato*\n\n"
+
                 "📍 *Sullato Micros e Vans*\n"
-                "Av. São Miguel, 7900 – CEP 08070-001\n\n"
+                "Av. São Miguel, 7900 – CEP 08070-001\n"
+                "☎️ (11) 2030-5081 / (11) 2031-5081\n"
+                "👉 https://wa.me/551120305081\n"
+                "👉 https://wa.me/5511940545704\n"
+                "📸 Instagram: https://www.instagram.com/sullatomicrosevans\n\n"
+
                 "📍 *Sullato Veículos*\n"
-                "Av. São Miguel, 4049/4084 – CEP 03871-000\n\n"
-                "📍 *Oficina & Peças*\n"
-                "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000"
+                "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
+                "☎️ (11) 2542-3332 / (11) 2542-3333\n"
+                "👉 https://wa.me/551125423332\n"
+                "👉 https://wa.me/5511940545704\n"
+                "📸 Instagram: https://www.instagram.com/sullato.veiculos\n\n"
+
+                "📍 *Sullato Oficina e Peças*\n"
+                "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
+                "☎️ (11) 2542-3333\n"
+                "👉 https://wa.me/551125423333\n\n"
+
+                "🌐 Site: https://www.sullato.com.br"
             )
             reset_sessao(numero)
             return
