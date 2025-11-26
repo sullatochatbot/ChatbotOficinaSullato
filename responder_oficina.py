@@ -227,6 +227,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_km":
         d["km"] = texto
         sessao["etapa"] = "pergunta_combustivel"
+        sessao["inicio"] = time.time()  # ← ESSENCIAL
         enviar_texto(numero, "Combustível (Gasolina / Etanol / Diesel / Flex / GNV):")
         return
 
@@ -348,6 +349,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 {"id": "Outros", "title": "Outros"},
             ]
         )
+        sessao["inicio"] = time.time()  # ← ESSENCIAL
         return
 
     if etapa == "servico_origem":
@@ -517,18 +519,17 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto in ["confirmar", "Confirmar"]:
             salvar_via_webapp(sessao)
+            reset_sessao(numero)
             enviar_texto(
                 numero,
                 "👍 *Perfeito!* Seus dados foram enviados.\n"
                 "Um técnico da Sullato irá te chamar em breve!"
             )
-            reset_sessao(numero)
             return
 
         if texto in ["editar", "Editar"]:
-            enviar_texto(numero, "Ok! Vamos reiniciar.\nDigite seu nome completo:")
             sessao["etapa"] = "pergunta_nome"
-            sessao["dados"] = {"fone": numero, "nome_whatsapp": d["nome_whatsapp"]}
+            enviar_texto(numero, "Ok! Vamos reiniciar.\nDigite seu nome completo:")
             return
 
         enviar_texto(numero, "Escolha uma opção válida.")
@@ -540,9 +541,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     enviar_texto(
         numero,
-        "Não entendi sua resposta. Vamos reiniciar!\n\n"
-        "Digite *seu nome completo*:"
+    "   Não entendi sua resposta. Escolha uma opção válida 🙂"
     )
-    sessao["etapa"] = "pergunta_nome"
-    sessao["dados"] = {"fone": numero, "nome_whatsapp": d["nome_whatsapp"]}
     return
