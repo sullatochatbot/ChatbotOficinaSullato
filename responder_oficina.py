@@ -16,7 +16,7 @@ WHATSAPP_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 GOOGLE_SHEETS_URL = os.getenv("OFICINA_SHEET_WEBHOOK_URL")
 SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
 
-TIMEOUT_SESSAO = 30
+TIMEOUT_SESSAO = 600
 SESSOES = {}
 
 # ============================================================
