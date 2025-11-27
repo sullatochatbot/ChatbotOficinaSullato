@@ -342,6 +342,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             sessao["etapa"] = "complemento_digitacao"
             enviar_texto(numero, "Digite o complemento:")
             return
+        
+        # Não quis informar complemento
         d["complemento"] = ""
         sessao["etapa"] = "descricao_especifica"
         return
@@ -357,24 +359,28 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "descricao_especifica":
 
+        # SERVIÇOS
         if d.get("interesse_inicial") == "servicos":
             d["tipo_registro"] = "Serviço"
             sessao["etapa"] = "descricao_servico"
             enviar_texto(numero, "Descreva o serviço desejado:")
             return
 
+        # PEÇAS
         if d.get("interesse_inicial") == "pecas":
             d["tipo_registro"] = "Peça"
             sessao["etapa"] = "descricao_peca"
             enviar_texto(numero, "Descreva qual peça você procura:")
             return
 
+        # POS-VENDA
         if d.get("interesse_inicial") == "pos_venda":
             d["tipo_registro"] = "Pós-venda"
             sessao["etapa"] = "posvenda_data_compra"
             enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
             return
 
+        # RETORNO OFICINA
         if d.get("interesse_inicial") == "retorno":
             d["tipo_registro"] = "Retorno Oficina"
             sessao["etapa"] = "retorno_data_servico"
@@ -402,17 +408,24 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         return
 
     if etapa == "servico_origem":
+
+        if texto == "Outros":
+            sessao["etapa"] = "servico_origem_outro"
+            enviar_texto(numero, "Qual é a origem?")
+            return
+
         d["origem"] = texto
         sessao["etapa"] = "confirmacao"
         resumo = construir_resumo(d)
-        enviar_botoes(
-            numero,
-            resumo + "\n\nConfirma o serviço?",
-            [
-                {"id": "confirmar", "title": "Confirmar"},
-                {"id": "editar", "title": "Editar"},
-            ]
-        )
+        enviar_botoes(...)
+        return
+
+    # NOVO TRECHO
+    if etapa == "servico_origem_outro":
+        d["origem"] = texto
+        sessao["etapa"] = "confirmacao"
+        resumo = construir_resumo(d)
+        enviar_botoes(...)
         return
 
     # ============================================================
