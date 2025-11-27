@@ -208,6 +208,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto == "5":
             d["interesse_inicial"] = "endereco"
+            enviar_texto(numero, "📍 Endereços Sullato...\n ...")
+
+            enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
 
             # ENDEREÇOS — MANTIDO EXATAMENTE COMO SEU ARQUIVO
             enviar_texto(
@@ -255,7 +258,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_cpf":
         d["cpf"] = texto
         sessao["etapa"] = "pergunta_nascimento"
-        enviar_texto(numero, "Digite *sua data de nascimento* (00/00/0000):")
+        enviar_texto(numero, "Digite *sua data de nascimento*:")
         return
 
     if etapa == "pergunta_nascimento":
@@ -286,7 +289,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_marca_modelo":
         d["marca_modelo"] = texto
         sessao["etapa"] = "pergunta_ano_modelo"
-        enviar_texto(numero, "Digite o *ano fab/mod* (ex: 21/21):")
+        enviar_texto(numero, "Digite o *ano fab/mod*:")
         return
 
     if etapa == "pergunta_ano_modelo":
@@ -299,7 +302,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["km"] = texto
         sessao["etapa"] = "pergunta_combustivel"
         sessao["inicio"] = time.time()
-        enviar_texto(numero, "Combustível (Gasolina / Etanol / Diesel / Flex / GNV):")
+        enviar_texto(numero, "Combustível:")
         return
 
     if etapa == "pergunta_combustivel":
@@ -340,11 +343,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             return
         d["complemento"] = ""
         sessao["etapa"] = "descricao_especifica"
+        enviar_texto(numero, "Certo! Agora vamos continuar.")
         return
 
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
+        enviar_texto(numero, "Certo! Agora vamos continuar.")
         return
 
     # ============================================================
