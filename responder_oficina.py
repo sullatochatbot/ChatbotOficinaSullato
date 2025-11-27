@@ -359,6 +359,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "descricao_especifica":
 
+        sessao["inicio"] = time.time()   # <- evita travamento entre complemento e descrição
+
         # SERVIÇOS
         if d.get("interesse_inicial") == "servicos":
             d["tipo_registro"] = "Serviço"
@@ -409,11 +411,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "servico_origem":
 
-        if texto == "Outros":
+        # Se clicou Outros → abre campo personalizado
+        if texto in ["Outros", "outros"]:
             sessao["etapa"] = "servico_origem_outro"
             enviar_texto(numero, "Qual é a origem?")
             return
 
+        # Google, Instagram, Facebook, Indicacao
         d["origem"] = texto
         sessao["etapa"] = "confirmacao"
         resumo = construir_resumo(d)
@@ -427,12 +431,19 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
-    # NOVO TRECHO
+    # Origem personalizada (Outros)
     if etapa == "servico_origem_outro":
         d["origem"] = texto
         sessao["etapa"] = "confirmacao"
         resumo = construir_resumo(d)
-        enviar_botoes(...)
+        enviar_botoes(
+            numero,
+            resumo + "\n\nConfirma?",
+            [
+                {"id": "confirmar", "title": "Confirmar"},
+                {"id": "editar", "title": "Editar"},
+            ]
+        )
         return
 
     # ============================================================
