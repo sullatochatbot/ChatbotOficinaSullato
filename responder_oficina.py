@@ -303,10 +303,24 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["km"] = texto
         sessao["etapa"] = "pergunta_combustivel"
         sessao["inicio"] = time.time()
-        enviar_texto(numero, "Combustível:")
+        enviar_botoes(
+            numero,
+            "Qual o combustível?",
+            [
+                {"id": "Gasolina", "title": "Gasolina"},
+                {"id": "Etanol", "title": "Etanol"},
+                {"id": "Diesel", "title": "Diesel"},
+                {"id": "Flex", "title": "Flex"},
+                {"id": "GNV", "title": "GNV"},
+            ]
+        )
         return
 
     if etapa == "pergunta_combustivel":
+        if texto not in ["Gasolina", "Etanol", "Diesel", "Flex", "GNV"]:
+            enviar_texto(numero, "Escolha uma opção válida.")
+            return
+        
         d["combustivel"] = texto
         sessao["etapa"] = "pergunta_placa"
         enviar_texto(numero, "Digite a *placa*:")
@@ -338,19 +352,29 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         return
 
     if etapa == "pergunta_complemento":
-        if texto in ["comp_sim", "Sim"]:
+
+        # Cliente escolheu que quer informar complemento
+        if texto.lower() in ["comp_sim", "sim"]:
             sessao["etapa"] = "complemento_digitacao"
             enviar_texto(numero, "Digite o complemento:")
             return
-        
-        # Não quis informar complemento
-        d["complemento"] = ""
-        sessao["etapa"] = "descricao_especifica"
+
+        # Cliente escolheu NÃO informar complemento
+        if texto.lower() in ["comp_nao", "nao", "não"]:
+            d["complemento"] = ""
+            sessao["etapa"] = "descricao_especifica"
+            enviar_texto(numero, "Certo! Agora vamos continuar...")
+            return
+
+        # Qualquer coisa fora do esperado
+        enviar_texto(numero, "Escolha uma opção válida: Sim ou Não.")
         return
+
 
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
+        enviar_texto(numero, "Perfeito! Agora vamos continuar…")
         return
 
     # ============================================================
@@ -411,24 +435,27 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "servico_origem":
 
-        # Se clicou Outros → abre campo personalizado
         if texto in ["Outros", "outros"]:
             sessao["etapa"] = "servico_origem_outro"
             enviar_texto(numero, "Qual é a origem?")
             return
 
-        # Google, Instagram, Facebook, Indicacao
-        d["origem"] = texto
-        sessao["etapa"] = "confirmacao"
-        resumo = construir_resumo(d)
-        enviar_botoes(
-            numero,
-            resumo + "\n\nConfirma?",
-            [
-                {"id": "confirmar", "title": "Confirmar"},
-                {"id": "editar", "title": "Editar"},
-            ]
-        )
+        # Aceitar BOTH ID e TÍTULO
+        if texto in ["Google", "Instagram", "Facebook", "Indicacao"]:
+            d["origem"] = texto
+            sessao["etapa"] = "confirmacao"
+            resumo = construir_resumo(d)
+            enviar_botoes(
+                numero,
+                resumo + "\n\nConfirma?",
+                [
+                    {"id": "confirmar", "title": "Confirmar"},
+                    {"id": "editar", "title": "Editar"},
+                ]
+            )
+            return
+        
+        enviar_texto(numero, "Escolha uma opção válida.")
         return
 
     # Origem personalizada (Outros)
@@ -467,6 +494,28 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         return
 
     if etapa == "peca_origem":
+
+        # Se o cliente clicar em "Outros"
+        if texto in ["Outros", "outros"]:
+            sessao["etapa"] = "peca_origem_outro"
+            enviar_texto(numero, "Qual é a origem?")
+            return
+
+        # Demais opções (Google/Instagram/Facebook/Indicação)
+        d["origem"] = texto
+        sessao["etapa"] = "confirmacao"
+        resumo = construir_resumo(d)
+        enviar_botoes(
+            numero,
+            resumo + "\n\nConfirma a peça?",
+            [
+                {"id": "confirmar", "title": "Confirmar"},
+                {"id": "editar", "title": "Editar"},
+            ]
+        )
+        return
+
+    if etapa == "peca_origem_outro":
         d["origem"] = texto
         sessao["etapa"] = "confirmacao"
         resumo = construir_resumo(d)
