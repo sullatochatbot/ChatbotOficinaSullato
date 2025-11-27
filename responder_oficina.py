@@ -417,7 +417,14 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["origem"] = texto
         sessao["etapa"] = "confirmacao"
         resumo = construir_resumo(d)
-        enviar_botoes(...)
+        enviar_botoes(
+            numero,
+            resumo + "\n\nConfirma?",
+            [
+                {"id": "confirmar", "title": "Confirmar"},
+                {"id": "editar", "title": "Editar"},
+            ]
+        )
         return
 
     # NOVO TRECHO
