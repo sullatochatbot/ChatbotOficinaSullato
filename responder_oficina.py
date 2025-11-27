@@ -210,9 +210,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             d["interesse_inicial"] = "endereco"
             enviar_texto(numero, "📍 Endereços Sullato...\n ...")
 
-            enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
-
-            # ENDEREÇOS — MANTIDO EXATAMENTE COMO SEU ARQUIVO
+            # 1️⃣ Primeiro envia todo o bloco de endereços
             enviar_texto(
                 numero,
                 "📍 *Endereços Sullato*\n\n"
@@ -238,6 +236,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
                 "🌐 Site: https://www.sullato.com.br"
             )
+
+            # 2️⃣ Depois envia a mensagem final (como você quer)
+            enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
 
             reset_sessao(numero)
             return
@@ -314,7 +315,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_placa":
         d["placa"] = texto
         sessao["etapa"] = "pergunta_cep"
-        enviar_texto(numero, "Digite o *CEP*:")
+        enviar_texto(numero, "Digite o *CEP*:(00000-000)")
         return
 
     if etapa == "pergunta_cep":
@@ -343,13 +344,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             return
         d["complemento"] = ""
         sessao["etapa"] = "descricao_especifica"
-        enviar_texto(numero, "Certo! Agora vamos continuar.")
         return
 
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
-        enviar_texto(numero, "Certo! Agora vamos continuar.")
         return
 
     # ============================================================
