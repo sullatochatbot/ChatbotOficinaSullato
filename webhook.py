@@ -11,6 +11,7 @@ VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN")
 def home():
     return "ONLINE", 200
 
+
 # ============================================================
 # VERIFICAÇÃO DO WEBHOOK (META → FLASK)
 # ============================================================
@@ -40,39 +41,68 @@ def receber_mensagem():
 
         if "entry" in data:
             for entry in data["entry"]:
-                if "changes" in entry:
-                    for change in entry["changes"]:
-                        value = change.get("value", {})
+                if "changes" not in entry:
+                    continue
 
-                        messages = value.get("messages")
-                        contacts = value.get("contacts")
+                for change in entry["changes"]:
+                    value = change.get("value", {})
 
-                        if messages and contacts:
+                    messages = value.get("messages")
+                    contacts = value.get("contacts")
 
-                            mensagem = messages[0]
-                            contato = contacts[0]
+                    if not messages or not contacts:
+                        continue
 
-                            numero = contato.get("wa_id")
-                            nome_whatsapp = contato.get("profile", {}).get("name", "Cliente")
+                    mensagem = messages[0]
+                    contato = contacts[0]
 
-                            texto = ""
+                    numero = contato.get("wa_id")
+                    nome_whatsapp = contato.get("profile", {}).get("name", "Cliente")
 
-                            if mensagem.get("type") == "text":
-                                texto = mensagem["text"]["body"]
+                    # =====================================
+                    # LER TODAS AS POSSIBILIDADES DE TEXTO
+                    # =====================================
 
-                            # BOTÕES (interactive reply)
-                            if mensagem.get("type") == "interactive":
-                                if mensagem["interactive"].get("type") == "button_reply":
-                                    texto = mensagem["interactive"]["button_reply"]["id"]
+                    texto = ""
 
-                            # ENTREGAR PRO CHATBOT
-                            responder_oficina(numero, texto, nome_whatsapp)
+                    # 🔹 Texto normal
+                    if mensagem.get("type") == "text":
+                        texto = mensagem["text"]["body"]
+
+                    # 🔹 Botões INTERACTIVE → BUTTON_REPLY
+                    elif mensagem.get("type") == "interactive":
+                        inter = mensagem.get("interactive", {})
+
+                        # Botão de resposta rápida
+                        if inter.get("type") == "button_reply":
+                            texto = inter["button_reply"]["id"]
+
+                        # Lista (list_reply)
+                        elif inter.get("type") == "list_reply":
+                            texto = inter["list_reply"]["id"]
+
+                    # 🔹 Caso futuramente venha message["button"] (novo formato)
+                    if "button" in mensagem:
+                        texto = mensagem["button"].get("payload") or mensagem["button"].get("text", "")
+
+                    # Se ainda vier vazio, evita quebrar
+                    if texto == "":
+                        texto = "undefined"
+
+                    print(f"➡️ Texto interpretado: {texto}")
+
+                    # =====================================
+                    # ENTREGAR PRO RESPONDER
+                    # =====================================
+
+                    responder_oficina(numero, texto, nome_whatsapp)
 
         return "EVENT_RECEIVED", 200
 
     except Exception as e:
         print("❌ ERRO NO WEBHOOK:", str(e))
         return "ERRO", 200
+
 
 
 if __name__ == "__main__":
