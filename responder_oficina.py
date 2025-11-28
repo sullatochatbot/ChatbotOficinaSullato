@@ -110,31 +110,30 @@ def iniciar_sessao(numero, nome_whatsapp):
 
 def salvar_via_webapp(sessao):
     try:
-        # 🔥 FILTRA APENAS CAMPOS QUE DEVEM IR PARA A PLANILHA
-        dados_validos = {}
-        for k, v in sessao["dados"].items():
-            if isinstance(v, (str, int, float)):
-                dados_validos[k] = v
+        campos_validos = {}
+
+        for campo, valor in sessao["dados"].items():
+            # Ignorar valores que NÃO são aceitos pelo Google Sheets
+            if isinstance(valor, (str, int, float)):
+                campos_validos[campo] = valor
 
         payload = {
             "secret": SECRET_KEY,
             "route": "chatbot",
-            "dados": dados_validos
+            "dados": campos_validos
         }
 
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = { "Content-Type": "application/json" }
 
         print("📤 Enviando para:", GOOGLE_SHEETS_URL)
-        print("📦 Payload filtrado:", payload)
+        print("📦 Payload final:", payload)
 
         resp = requests.post(GOOGLE_SHEETS_URL, json=payload, headers=headers)
-
         print("📥 RESPOSTA:", resp.status_code, resp.text)
 
     except Exception as e:
         print("❌ Erro salvar webapp:", e)
+
 
 # ============================================================
 # RESUMO FINAL
