@@ -423,48 +423,20 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "servico_origem":
 
-        texto_normalizado = texto.strip().lower()
+        # Aceita QUALQUER COISA digitada
+        d["origem"] = texto  
 
-        # Aceitar números digitados
-        mapa_numeros = {
-            "1": "Google",
-            "2": "Instagram",
-            "3": "Facebook",
-            "4": "Indicação",
-            "5": "Outros",
-        }
-        if texto_normalizado in mapa_numeros:
-            texto_normalizado = mapa_numeros[texto_normalizado].lower()
+        sessao["etapa"] = "confirmacao"
+        resumo = construir_resumo(d)
 
-        # Cliente escolheu "Outros"
-        if texto_normalizado in ["outros", "outro"]:
-            sessao["etapa"] = "servico_origem_outro"
-            enviar_texto(numero, "Qual é a origem?")
-            return
-
-        opcoes_validas = {
-            "google": "Google",
-            "instagram": "Instagram",
-            "facebook": "Facebook",
-            "indicação": "Indicação",
-            "indicacao": "Indicação",
-        }
-
-        if texto_normalizado in opcoes_validas:
-            d["origem"] = opcoes_validas[texto_normalizado]
-            sessao["etapa"] = "confirmacao"
-            resumo = construir_resumo(d)
-            enviar_botoes(
-                numero,
-                resumo + "\n\nConfirma?",
-                [
-                    {"id": "confirmar", "title": "Confirmar"},
-                    {"id": "editar", "title": "Editar"},
-                ]
-            )
-            return
-
-        enviar_texto(numero, "Escolha uma opção válida.")
+        enviar_botoes(
+            numero,
+            resumo + "\n\nConfirma?",
+            [
+                {"id": "confirmar", "title": "Confirmar"},
+                {"id": "editar", "title": "Editar"},
+            ]
+        )
         return
 
     if etapa == "servico_origem_outro":
