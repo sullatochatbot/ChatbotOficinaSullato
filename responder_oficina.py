@@ -501,23 +501,26 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
-    # ============================================================
+        # ============================================================
     # CONFIRMAÇÃO FINAL
     # ============================================================
 
     if etapa == "confirmacao":
 
-        if texto.lower() in ["confirmar", "confirm", "ok"]:
+        texto_normalizado = texto.strip().lower()
+
+        # Aceitar clique no botão OU digitação manual
+        if texto_normalizado in ["confirmar", "confirm", "ok", "confirmar_button", "id_confirmar"]:
             salvar_via_webapp(sessao)
             reset_sessao(numero)
             enviar_texto(
                 numero,
                 "👍 *Perfeito!* Seus dados foram enviados.\n"
-                "Um técnico da Sullato entrará em contato em breve!",
+                "Um técnico da Sullato entrará em contato em breve!"
             )
             return
 
-        if texto.lower() in ["editar", "corrigir"]:
+        if texto_normalizado in ["editar", "corrigir", "editar_button"]:
             sessao["etapa"] = "pergunta_nome"
             enviar_texto(numero, "Vamos corrigir. Digite seu nome completo:")
             return
@@ -525,9 +528,4 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         enviar_texto(numero, "Escolha uma opção válida.")
         return
 
-    # ============================================================
-    # FORA DO FLUXO
-    # ============================================================
-
-    enviar_texto(numero, "Não entendi sua resposta. Por favor, siga as opções 🙂")
-    return
+    
