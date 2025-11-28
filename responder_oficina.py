@@ -303,27 +303,23 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["km"] = texto
         sessao["etapa"] = "pergunta_combustivel"
         sessao["inicio"] = time.time()
-        enviar_botoes(
-            numero,
-            "Qual o combustível?",
-            [
-                {"id": "Gasolina", "title": "Gasolina"},
-                {"id": "Etanol", "title": "Etanol"},
-                {"id": "Diesel", "title": "Diesel"},
-                {"id": "Flex", "title": "Flex"},
-                {"id": "GNV", "title": "GNV"},
-            ]
-        )
+        enviar_texto(numero, "Qual o combustível? (Gasolina, Etanol, Diesel, Flex ou GNV)")
         return
 
+    # ETAPA — Combustível digitado
     if etapa == "pergunta_combustivel":
-        if texto not in ["Gasolina", "Etanol", "Diesel", "Flex", "GNV"]:
-            enviar_texto(numero, "Escolha uma opção válida.")
+
+        combustivel = texto.lower()
+
+        combustiveis_validos = ["gasolina", "etanol", "diesel", "flex", "gnv"]
+
+        if combustivel not in combustiveis_validos:
+            enviar_texto(numero, "Por favor, informe um combustível válido (Gasolina, Etanol, Diesel, Flex ou GNV).")
             return
-        
-        d["combustivel"] = texto
+
+        d["combustivel"] = combustivel.title()
         sessao["etapa"] = "pergunta_placa"
-        enviar_texto(numero, "Digite a *placa*:")
+        enviar_texto(numero, "Digite a *placa*:")  
         return
 
     if etapa == "pergunta_placa":
