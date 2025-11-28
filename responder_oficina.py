@@ -416,7 +416,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "descricao_servico":
         d["descricao"] = texto
         sessao["etapa"] = "servico_origem"
-        sessao["inicio"] = time.time()   # ← PREVINE TRAVAMENTO
+        sessao["inicio"] = time.time()
+
         enviar_botoes(
             numero,
             "Como nos conheceu?",
@@ -430,12 +431,25 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
+
     if etapa == "servico_origem":
 
         texto_normalizado = texto.strip().lower()
 
+        # Aceitar quando o cliente digita números:
+        mapa_numeros = {
+            "1": "Google",
+            "2": "Instagram",
+            "3": "Facebook",
+            "4": "Indicação",
+            "5": "Outros",
+        }
+
+        if texto_normalizado in mapa_numeros:
+            texto_normalizado = mapa_numeros[texto_normalizado].lower()
+
         # Cliente escolheu "Outros"
-        if texto_normalizado in ["outros", "outro", "others"]:
+        if texto_normalizado in ["outros", "outro"]:
             sessao["etapa"] = "servico_origem_outro"
             enviar_texto(numero, "Qual é a origem?")
             return
@@ -445,6 +459,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             "google": "Google",
             "instagram": "Instagram",
             "facebook": "Facebook",
+            "indicação": "Indicação",
             "indicacao": "Indicação",
         }
 
@@ -465,7 +480,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         enviar_texto(numero, "Escolha uma opção válida.")
         return
 
-    # Origem personalizada (Outros)
+
     if etapa == "servico_origem_outro":
         d["origem"] = texto
         sessao["etapa"] = "confirmacao"
