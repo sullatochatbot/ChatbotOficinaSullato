@@ -110,10 +110,16 @@ def iniciar_sessao(numero, nome_whatsapp):
 
 def salvar_via_webapp(sessao):
     try:
+        # 🔥 FILTRA APENAS CAMPOS QUE DEVEM IR PARA A PLANILHA
+        dados_validos = {}
+        for k, v in sessao["dados"].items():
+            if isinstance(v, (str, int, float)):
+                dados_validos[k] = v
+
         payload = {
             "secret": SECRET_KEY,
             "route": "chatbot",
-            "dados": sessao["dados"]
+            "dados": dados_validos
         }
 
         headers = {
@@ -121,7 +127,7 @@ def salvar_via_webapp(sessao):
         }
 
         print("📤 Enviando para:", GOOGLE_SHEETS_URL)
-        print("📦 Payload:", payload)
+        print("📦 Payload filtrado:", payload)
 
         resp = requests.post(GOOGLE_SHEETS_URL, json=payload, headers=headers)
 
