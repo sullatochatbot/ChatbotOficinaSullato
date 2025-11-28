@@ -113,17 +113,19 @@ def salvar_via_webapp(sessao):
         payload = {
             "secret": SECRET_KEY,
             "route": "chatbot",
-            "dados": sessao["dados"]  # ÚNICO OBJETO ENVIADO
+            "dados": sessao["dados"]
         }
 
         headers = {
-            "Authorization": "",
             "Content-Type": "application/json"
         }
 
+        print("📤 Enviando para:", GOOGLE_SHEETS_URL)
+        print("📦 Payload:", payload)
+
         resp = requests.post(GOOGLE_SHEETS_URL, json=payload, headers=headers)
 
-        print("📤 ENVIO GOOGLE SHEETS:", resp.status_code, resp.text)
+        print("📥 RESPOSTA:", resp.status_code, resp.text)
 
     except Exception as e:
         print("❌ Erro salvar webapp:", e)
