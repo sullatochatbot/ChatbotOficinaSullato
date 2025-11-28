@@ -416,6 +416,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "descricao_servico":
         d["descricao"] = texto
         sessao["etapa"] = "servico_origem"
+        sessao["inicio"] = time.time()   # ← PREVINE TRAVAMENTO
         enviar_botoes(
             numero,
             "Como nos conheceu?",
@@ -431,14 +432,24 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "servico_origem":
 
-        if texto in ["Outros", "outros"]:
+        texto_normalizado = texto.strip().lower()
+
+        # Cliente escolheu "Outros"
+        if texto_normalizado in ["outros", "outro", "others"]:
             sessao["etapa"] = "servico_origem_outro"
             enviar_texto(numero, "Qual é a origem?")
             return
 
-        # Aceitar BOTH ID e TÍTULO
-        if texto in ["Google", "Instagram", "Facebook", "Indicacao"]:
-            d["origem"] = texto
+        # Aceitar ID ou título
+        opcoes_validas = {
+            "google": "Google",
+            "instagram": "Instagram",
+            "facebook": "Facebook",
+            "indicacao": "Indicação",
+        }
+
+        if texto_normalizado in opcoes_validas:
+            d["origem"] = opcoes_validas[texto_normalizado]
             sessao["etapa"] = "confirmacao"
             resumo = construir_resumo(d)
             enviar_botoes(
@@ -450,7 +461,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 ]
             )
             return
-        
+
         enviar_texto(numero, "Escolha uma opção válida.")
         return
 
