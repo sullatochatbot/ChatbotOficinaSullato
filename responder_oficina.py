@@ -227,6 +227,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 numero,
                 "📍 *Endereços Sullato*\n\n"
 
+                "🌐 Site: https://www.sullato.com.br",
+
                 "📍 *Sullato Micros e Vans*\n"
                 "Av. São Miguel, 7900 – CEP 08070-001\n"
                 "☎️ (11) 2030-5081 / (11) 2031-5081\n"
@@ -244,8 +246,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 "📍 *Sullato Oficina e Peças*\n"
                 "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
                 "☎️ (11) 2542-3333\n"
-                "👉 https://wa.me/551125423333\n\n"
-                "🌐 Site: https://www.sullato.com.br",
+                "👉 https://wa.me/551125423333\n\n",
             )
 
             enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
