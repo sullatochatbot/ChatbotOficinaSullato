@@ -7,6 +7,35 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ============================================================
+# CONSULTA ENDEREÇO PELO CEP (ViaCEP)
+# ============================================================
+
+def consultar_endereco_por_cep(cep):
+    try:
+        cep_limpo = cep.replace("-", "").strip()
+        url = f"https://viacep.com.br/ws/{cep_limpo}/json/"
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return ""
+
+        data = r.json()
+
+        if "erro" in data:
+            return ""
+
+        logradouro = data.get("logradouro", "")
+        bairro = data.get("bairro", "")
+        cidade = data.get("localidade", "")
+        estado = data.get("uf", "")
+
+        endereco = f"{logradouro}, {bairro}, {cidade} - {estado}"
+        return endereco
+
+    except:
+        return ""
+
+
+# ============================================================
 # VARIÁVEIS DE AMBIENTE
 # ============================================================
 
@@ -336,6 +365,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "pergunta_cep":
         d["cep"] = texto
+
+        # 🔥 NOVO: consultar endereço pelo CEP
+        endereco = consultar_endereco_por_cep(texto)
+        d["endereco_completo"] = endereco
+
         sessao["etapa"] = "pergunta_numero_endereco"
         enviar_texto(numero, "Digite o *número*:")
         return
