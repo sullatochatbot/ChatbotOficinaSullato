@@ -251,6 +251,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto == "5":
             d["interesse_inicial"] = "endereco"
+            d["tipo_registro"] = "Consulta Endereço"
+            d["descricao"] = "Cliente acessou o menu de endereço"
+            d["origem"] = "chatbot oficina"
+
+            # ✔ SALVAR ANTES DE ENVIAR AS MENSAGENS
+            salvar_via_webapp(sessao)
 
             enviar_texto(
                 numero,
@@ -279,6 +285,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
 
             enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
+            
             reset_sessao(numero)
             return
 
