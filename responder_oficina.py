@@ -23,10 +23,11 @@ def consultar_endereco_por_cep(cep):
         if "erro" in data:
             return ""
 
-        logradouro = data.get("logradouro", "")
-        bairro = data.get("bairro", "")
-        cidade = data.get("localidade", "")
-        estado = data.get("uf", "")
+        # 🔥 TRECHO CORRIGIDO — agora com indentação perfeita
+        logradouro = data.get("logradouro", "").strip() or "Não informado"
+        bairro = data.get("bairro", "").strip() or "Não informado"
+        cidade = data.get("localidade", "").strip() or "Não informado"
+        estado = data.get("uf", "").strip() or "Não informado"
 
         endereco = f"{logradouro}, {bairro}, {cidade} - {estado}"
         return endereco
