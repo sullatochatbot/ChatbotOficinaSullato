@@ -130,7 +130,7 @@ def iniciar_sessao(numero, nome_whatsapp):
         "2 – Peças\n"
         "3 – Pós-venda / Garantia\n"
         "4 – Retorno Oficina\n"
-        "5 – Endereço",
+        "5 – Endereço e Contato",
     )
 
 # ============================================================
@@ -260,7 +260,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
             enviar_texto(
                 numero,
-                "📍 *Endereços Sullato*\n\n"
+                "📍 *Endereços e Contatos Sullato*\n\n"
 
                 "🌐 Site: https://www.sullato.com.br\n\n"
                 
@@ -281,7 +281,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 "📍 *Sullato Oficina e Peças*\n"
                 "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
                 "☎️ (11) 2542-3333\n"
-                "👉 https://wa.me/551125423333\n\n",
+                "👉 https://wa.me/551125423333\n\n"
                 "🔧 *Érico*: https://wa.me/5511940497678\n"
                 "🔧 *Leandro*: https://wa.me/5511940443566\n"
             )
