@@ -130,7 +130,7 @@ def iniciar_sessao(numero, nome_whatsapp):
         "2 – Peças\n"
         "3 – Pós-venda / Garantia\n"
         "4 – Retorno Oficina\n"
-        "5 – Endereço e Contatos",
+        "5 – Endereço",
     )
 
 # ============================================================
@@ -260,7 +260,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
             enviar_texto(
                 numero,
-                "📍 *Endereços e contatos Sullato*\n\n"
+                "📍 *Endereços Sullato*\n\n"
 
                 "🌐 Site: https://www.sullato.com.br\n\n"
                 
