@@ -227,43 +227,88 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto == "1":
             d["interesse_inicial"] = "servicos"
-            sessao["etapa"] = "pergunta_nome"
-            enviar_texto(numero, "Digite seu nome completo:")
+            sessao["etapa"] = "ja_cadastrado"
+            enviar_botoes(
+                numero,
+                "Você já fez atendimento conosco antes?",
+                [
+                    {"id": "cad_sim", "title": "Sim"},
+                    {"id": "cad_nao", "title": "Não"}
+                ]
+            )
             return
 
         if texto == "2":
             d["interesse_inicial"] = "pecas"
-            sessao["etapa"] = "pergunta_nome"
-            enviar_texto(numero, "Digite seu nome completo:")
+            sessao["etapa"] = "ja_cadastrado"
+            enviar_botoes(
+            numero,
+                "Você já fez atendimento conosco antes?",
+                [
+                    {"id": "cad_sim", "title": "Sim"},
+                    {"id": "cad_nao", "title": "Não"}
+                ]
+            )
             return
 
         if texto == "3":
             d["interesse_inicial"] = "pos_venda"
-            sessao["etapa"] = "pergunta_nome"
-            enviar_texto(numero, "Digite seu nome completo:")
+            sessao["etapa"] = "ja_cadastrado"
+            enviar_botoes(
+                numero,
+                "Você já fez atendimento conosco antes?",
+                [
+                    {"id": "cad_sim", "title": "Sim"},
+                    {"id": "cad_nao", "title": "Não"}
+                ]
+            )
             return
 
         if texto == "4":
-            d["interesse_inicial"] = "retorno"
-            sessao["etapa"] = "pergunta_nome"
-            enviar_texto(numero, "Digite seu nome completo:")
+            d["interesse_inicial"] = "retorno_oficina"
+            sessao["etapa"] = "ja_cadastrado"
+            enviar_botoes(
+                numero,
+                "Você já fez atendimento conosco antes?",
+                [
+                    {"id": "cad_sim", "title": "Sim"},
+                    {"id": "cad_nao", "title": "Não"}
+                ]
+            )
             return
 
         if texto == "5":
             d["interesse_inicial"] = "endereco"
-            d["tipo_registro"] = "Consulta Endereço"
-            d["descricao"] = "Cliente acessou o menu de endereço"
-            d["origem"] = "chatbot oficina"
+            sessao["etapa"] = "ja_cadastrado_endereco"
+            enviar_botoes(
+                numero,
+                "Você já fez atendimento conosco antes?",
+                [
+                    {"id": "cad_sim", "title": "Sim"},
+                    {"id": "cad_nao", "title": "Não"}
+                ]
+            )
+            return
 
-            # ✔ SALVAR ANTES DE ENVIAR AS MENSAGENS
-            salvar_via_webapp(sessao)
+        enviar_texto(numero, "❗Digite uma opção válida entre 1 e 5.")
+        return
 
+    # ============================================================
+    # ETAPA: JA_CADASTRADO_ENDERECO  (somente para o botão 5)
+    # ============================================================
+
+    if etapa == "ja_cadastrado_endereco":
+
+        if texto in ["cad_sim", "Sim", "sim", "cad_nao", "Não", "nao", "não"]:
+
+            salvar_via_webapp(sessao)  # grava quem clicou endereço
+
+            # Enviar endereço completo
             enviar_texto(
                 numero,
                 "📍 *Endereços e Contatos Sullato*\n\n"
-
                 "🌐 Site: https://www.sullato.com.br\n\n"
-                
+
                 "📍 *Sullato Micros e Vans*\n"
                 "Av. São Miguel, 7900 – CEP 08070-001\n"
                 "☎️ (11) 2030-5081 / (11) 2031-5081\n"
@@ -287,13 +332,32 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
 
             enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
-            
+
             reset_sessao(numero)
             return
 
-        enviar_texto(numero, "❗Digite uma opção válida entre 1 e 5.")
+        enviar_texto(numero, "Escolha uma opção válida.")
         return
 
+    # ============================================================
+    # ETAPA: JA_CADASTRADO  (para opções 1, 2, 3 e 4)
+    # ============================================================
+
+    if etapa == "ja_cadastrado":
+
+        if texto in ["cad_sim", "Sim", "sim"]:
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
+            return
+
+        if texto in ["cad_nao", "Não", "nao", "não"]:
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
+            return
+
+        enviar_texto(numero, "Escolha uma opção válida.")
+        return
+    
     # ============================================================
     # PERGUNTAS BÁSICAS
     # ============================================================
@@ -306,9 +370,56 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "pergunta_cpf":
         d["cpf"] = texto
-        sessao["etapa"] = "pergunta_nascimento"
-        enviar_texto(numero, "Digite sua *data de nascimento*:")
-        return
+
+        # 🔥 CONSULTA A MEMÓRIA NO GOOGLE SHEETS
+        try:
+            resposta = requests.post(
+                GOOGLE_SHEETS_URL,
+                json={
+                    "secret": SECRET_KEY,
+                    "route": "consulta_cliente",
+                    "dados": {"cpf": texto, "fone": numero},
+                },
+                timeout=8
+            ).json()
+
+            # ---------------------------------------------------------
+            # SE ENCONTROU ALGUÉM – PREENCHER TODA A FICHA AUTOMÁTICA
+            # ---------------------------------------------------------
+            if resposta.get("encontrado"):
+
+                d["nome"]               = resposta.get("nome", d.get("nome"))
+                d["nascimento"]         = resposta.get("nascimento", "")
+                d["tipo_veiculo"]       = resposta.get("tipo_veiculo", "")
+                d["marca_modelo"]       = resposta.get("marca_modelo", "")
+                d["ano_modelo"]         = resposta.get("ano_modelo", "")
+                d["km"]                 = resposta.get("km", "")
+                d["combustivel"]        = resposta.get("combustivel", "")
+                d["placa"]              = resposta.get("placa", "")
+                d["cep"]                = resposta.get("cep", "")
+                d["numero"]             = resposta.get("numero", "")
+                d["complemento"]        = resposta.get("complemento", "")
+                d["endereco_completo"]  = resposta.get("endereco_completo", "")
+
+                # ---------------------------------------------------------
+                # JÁ TEM CADASTRO → VAI DIRETO PARA A DESCRIÇÃO DO SERVIÇO
+                # ---------------------------------------------------------
+                sessao["etapa"] = "descricao_especifica"
+                return responder_oficina(numero, "", nome_whatsapp)
+
+            # ---------------------------------------------------------
+            # SE NÃO ENCONTRAR CADASTRO → FLUXO NORMAL
+            # ---------------------------------------------------------
+            else:
+                sessao["etapa"] = "pergunta_nascimento"
+                enviar_texto(numero, "Digite sua *data de nascimento*:")
+                return
+
+        except Exception as e:
+            print("Erro ao consultar memória:", e)
+            sessao["etapa"] = "pergunta_nascimento"
+            enviar_texto(numero, "Digite sua *data de nascimento*:")
+            return
 
     if etapa == "pergunta_nascimento":
         d["nascimento"] = texto
@@ -448,7 +559,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             return
 
         # Retorno Oficina
-        if d.get("interesse_inicial") == "retorno":
+        if d.get("interesse_inicial") == "retorno_oficina":
             d["tipo_registro"] = "Retorno Oficina"
             sessao["etapa"] = "retorno_data_servico"
             enviar_texto(numero, "Qual foi a data do serviço realizado?")
