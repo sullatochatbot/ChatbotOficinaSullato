@@ -279,31 +279,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto == "5":
             d["interesse_inicial"] = "endereco"
-            sessao["etapa"] = "ja_cadastrado_endereco"
-            enviar_botoes(
-                numero,
-                "Você já fez atendimento conosco antes?",
-                [
-                    {"id": "cad_sim", "title": "Sim"},
-                    {"id": "cad_nao", "title": "Não"}
-                ]
-            )
-            return
 
-        enviar_texto(numero, "❗Digite uma opção válida entre 1 e 5.")
-        return
+            # Grava que clicou no endereço
+            salvar_via_webapp(sessao)
 
-    # ============================================================
-    # ETAPA: JA_CADASTRADO_ENDERECO  (somente para o botão 5)
-    # ============================================================
-
-    if etapa == "ja_cadastrado_endereco":
-
-        if texto in ["cad_sim", "Sim", "sim", "cad_nao", "Não", "nao", "não"]:
-
-            salvar_via_webapp(sessao)  # grava quem clicou endereço
-
-            # Enviar endereço completo
+            # Envia os endereços imediatamente
             enviar_texto(
                 numero,
                 "📍 *Endereços e Contatos Sullato*\n\n"
@@ -332,12 +312,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
 
             enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
-
             reset_sessao(numero)
             return
-
-        enviar_texto(numero, "Escolha uma opção válida.")
-        return
 
     # ============================================================
     # ETAPA: JA_CADASTRADO  (para opções 1, 2, 3 e 4)
@@ -345,11 +321,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "ja_cadastrado":
 
+        # Se é cliente antigo, pedir apenas o CPF
         if texto in ["cad_sim", "Sim", "sim"]:
-            sessao["etapa"] = "pergunta_nome"
-            enviar_texto(numero, "Digite seu nome completo:")
+            sessao["etapa"] = "pergunta_cpf"
+            enviar_texto(numero, "Digite apenas o *CPF* que usou no último atendimento (123.456.789-00):")
             return
 
+        # Se NÃO é cadastrado, fluxo normal
         if texto in ["cad_nao", "Não", "nao", "não"]:
             sessao["etapa"] = "pergunta_nome"
             enviar_texto(numero, "Digite seu nome completo:")
@@ -357,7 +335,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         enviar_texto(numero, "Escolha uma opção válida.")
         return
-    
+
     # ============================================================
     # PERGUNTAS BÁSICAS
     # ============================================================
@@ -369,6 +347,23 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         return
 
     if etapa == "pergunta_cpf":
+
+        # Normalizar CPF
+        cpf_limpo = (
+            texto.replace(".", "")
+            .replace("-", "")
+            .replace(" ", "")
+            .strip()
+        )
+
+        # Formatar estilo 123.456.789-00
+        if len(cpf_limpo) == 11 and cpf_limpo.isdigit():
+            texto = f"{cpf_limpo[0:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:11]}"
+            d["cpf"] = texto     # <-- garante que salva formatado
+        else:
+            enviar_texto(numero, "CPF inválido. Digite no formato 123.456.789-00")
+            return
+
         d["cpf"] = texto
 
         # 🔥 CONSULTA A MEMÓRIA NO GOOGLE SHEETS
