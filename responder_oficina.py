@@ -384,20 +384,17 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             # ========================================================
             if resposta.get("encontrado"):
 
-                # Lista dos campos possíveis da planilha
                 campos = [
                     "nome", "nascimento", "tipo_veiculo", "marca_modelo",
                     "ano_modelo", "km", "combustivel", "placa",
                     "cep", "endereco_completo", "numero", "complemento"
                 ]
 
-                # Carrega somente o que existe
                 for campo in campos:
                     valor = resposta.get(campo)
                     if valor not in [None, ""]:
                         d[campo] = valor
 
-                # Mensagem clara para o cliente
                 enviar_texto(
                     numero,
                     "🔎 *Encontramos seu cadastro!*\n"
@@ -405,9 +402,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                     "Agora descreva o que você precisa 👇"
                 )
 
-                # Vai direto para descrição
                 sessao["etapa"] = "descricao_especifica"
-                return responder_oficina(numero, "", nome_whatsapp)
+                return
 
             # ========================================================
             # ❌ CPF NÃO ENCONTRADO — PEDIR NOME
