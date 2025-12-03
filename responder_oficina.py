@@ -61,6 +61,7 @@ def enviar_texto(numero, texto):
         headers = {
             "Authorization": f"Bearer {WHATSAPP_TOKEN}",
             "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
     except Exception as e:
@@ -359,7 +360,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         # Formatar estilo 123.456.789-00
         if len(cpf_limpo) == 11 and cpf_limpo.isdigit():
             texto = f"{cpf_limpo[0:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:11]}"
-            d["cpf"] = texto     # <-- garante que salva formatado
+            d["cpf"] = texto
         else:
             enviar_texto(numero, "CPF inválido. Digite no formato 123.456.789-00")
             return
@@ -378,11 +379,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 timeout=8
             ).json()
 
-            # ---------------------------------------------------------
-            # SE ENCONTROU ALGUÉM – PREENCHER TODA A FICHA AUTOMÁTICA
-            # ---------------------------------------------------------
             if resposta.get("encontrado"):
 
+                # Preenche automaticamente tudo que existe no histórico
                 d["nome"]               = resposta.get("nome", d.get("nome"))
                 d["nascimento"]         = resposta.get("nascimento", "")
                 d["tipo_veiculo"]       = resposta.get("tipo_veiculo", "")
@@ -396,18 +395,22 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 d["complemento"]        = resposta.get("complemento", "")
                 d["endereco_completo"]  = resposta.get("endereco_completo", "")
 
-                # ---------------------------------------------------------
-                # JÁ TEM CADASTRO → VAI DIRETO PARA A DESCRIÇÃO DO SERVIÇO
-                # ---------------------------------------------------------
+                # ⚠️ NOVO: mensagem clara para o cliente
+                enviar_texto(
+                    numero,
+                    "🔎 *Encontramos seu cadastro!*\n"
+                    "Seus dados foram carregados automaticamente.\n\n"
+                    "Agora descreva o que você precisa 👇"
+                )
+
+                # Vai direto para descrição
                 sessao["etapa"] = "descricao_especifica"
                 return responder_oficina(numero, "", nome_whatsapp)
 
-            # ---------------------------------------------------------
-            # SE NÃO ENCONTRAR CADASTRO → FLUXO NORMAL
-            # ---------------------------------------------------------
             else:
-                sessao["etapa"] = "pergunta_nascimento"
-                enviar_texto(numero, "Digite sua *data de nascimento*:")
+                # 👉 NOVO BLOCO — se CPF não encontrado, pede o nome
+                sessao["etapa"] = "pergunta_nome_nao_encontrado"
+                enviar_texto(numero, "Não encontrei seu cadastro pelo CPF.\n\nDigite seu *nome completo*:")
                 return
 
         except Exception as e:
@@ -415,6 +418,20 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             sessao["etapa"] = "pergunta_nascimento"
             enviar_texto(numero, "Digite sua *data de nascimento*:")
             return
+
+    # ============================================================
+    # NOVA ETAPA: perguntar nome quando CPF NÃO existe
+    # ============================================================
+
+    if etapa == "pergunta_nome_nao_encontrado":
+        d["nome"] = texto
+        sessao["etapa"] = "pergunta_nascimento"
+        enviar_texto(numero, "Digite sua *data de nascimento*:")
+        return
+
+    # ============================================================
+    # CONTINUAÇÃO NORMAL
+    # ============================================================
 
     if etapa == "pergunta_nascimento":
         d["nascimento"] = texto
