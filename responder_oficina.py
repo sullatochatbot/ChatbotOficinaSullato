@@ -379,23 +379,25 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 timeout=8
             ).json()
 
+            # ========================================================
+            # ⚠️ CPF ENCONTRADO — PULAR TODAS AS PERGUNTAS
+            # ========================================================
             if resposta.get("encontrado"):
 
-                # Preenche automaticamente tudo que existe no histórico
-                d["nome"]               = resposta.get("nome", d.get("nome"))
-                d["nascimento"]         = resposta.get("nascimento", "")
-                d["tipo_veiculo"]       = resposta.get("tipo_veiculo", "")
-                d["marca_modelo"]       = resposta.get("marca_modelo", "")
-                d["ano_modelo"]         = resposta.get("ano_modelo", "")
-                d["km"]                 = resposta.get("km", "")
-                d["combustivel"]        = resposta.get("combustivel", "")
-                d["placa"]              = resposta.get("placa", "")
-                d["cep"]                = resposta.get("cep", "")
-                d["numero"]             = resposta.get("numero", "")
-                d["complemento"]        = resposta.get("complemento", "")
-                d["endereco_completo"]  = resposta.get("endereco_completo", "")
+                # Lista dos campos possíveis da planilha
+                campos = [
+                    "nome", "nascimento", "tipo_veiculo", "marca_modelo",
+                    "ano_modelo", "km", "combustivel", "placa",
+                    "cep", "endereco_completo", "numero", "complemento"
+                ]
 
-                # ⚠️ NOVO: mensagem clara para o cliente
+                # Carrega somente o que existe
+                for campo in campos:
+                    valor = resposta.get(campo)
+                    if valor not in [None, ""]:
+                        d[campo] = valor
+
+                # Mensagem clara para o cliente
                 enviar_texto(
                     numero,
                     "🔎 *Encontramos seu cadastro!*\n"
@@ -407,8 +409,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 sessao["etapa"] = "descricao_especifica"
                 return responder_oficina(numero, "", nome_whatsapp)
 
+            # ========================================================
+            # ❌ CPF NÃO ENCONTRADO — PEDIR NOME
+            # ========================================================
             else:
-                # 👉 NOVO BLOCO — se CPF não encontrado, pede o nome
                 sessao["etapa"] = "pergunta_nome_nao_encontrado"
                 enviar_texto(numero, "Não encontrei seu cadastro pelo CPF.\n\nDigite seu *nome completo*:")
                 return
@@ -719,7 +723,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         )
         return
 
-        # ============================================================
+    # ============================================================
     # CONFIRMAÇÃO FINAL
     # ============================================================
 
