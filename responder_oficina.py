@@ -197,6 +197,25 @@ def construir_resumo(d):
 def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = texto_digitado.strip()
+
+    # 🔥 Normalização universal de botões e textos
+    mapa_botoes = {
+        "Sim": "cad_sim",
+        "sim": "cad_sim",
+        "SIM": "cad_sim",
+        "cad_sim": "cad_sim",
+
+        "Não": "cad_nao",
+        "Nao": "cad_nao",
+        "NAO": "cad_nao",
+        "não": "cad_nao",
+        "nao": "cad_nao",
+        "cad_nao": "cad_nao",
+    }
+
+    if texto in mapa_botoes:
+        texto = mapa_botoes[texto]
+
     agora = time.time()
 
     # Criar sessão
@@ -316,13 +335,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "ja_cadastrado":
 
-        if texto in ["cad_sim", "Sim", "sim"]:
+        if texto == "cad_sim":
             sessao["veio_de"] = "cliente_antigo"   # ← NOVO
             sessao["etapa"] = "pergunta_cpf"
-            enviar_texto(numero, "Digite seu *CPF* para continuar:")
+            enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00) para continuar:")
             return
 
-        if texto in ["cad_nao", "Não", "nao", "não"]:
+        if texto == "cad_nao":
             sessao["etapa"] = "pergunta_nome"
             enviar_texto(numero, "Digite seu nome completo:")
             return
@@ -337,7 +356,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_nome":
         d["nome"] = texto
         sessao["etapa"] = "pergunta_cpf"
-        enviar_texto(numero, "Digite *seu CPF*:")        
+        enviar_texto(numero, "Digite *seu CPF* (ex: 123.456.789-00):")     
         return
 
     # ============================================================
