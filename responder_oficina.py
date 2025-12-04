@@ -361,14 +361,32 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             enviar_texto(numero, "CPF inválido. Digite no formato 123.456.789-00")
             return
 
-        # 🔥 AGORA NÃO CONSULTA MAIS A PLANILHA
-        # Cliente que disse "SIM" segue fluxo reduzido
-        if d.get("interesse_inicial") in ["servicos", "pecas", "pos_venda", "retorno_oficina"] \
-            and sessao.get("veio_de") == "cliente_antigo":
+        # 🔥 FLUXO REDUZIDO PARA CLIENTE ANTIGO (SIM)
+        if sessao.get("veio_de") == "cliente_antigo":
 
-            sessao["etapa"] = "descricao_especifica"
-            enviar_texto(numero, "Perfeito! Agora descreva o que você precisa 👇")
-            return
+            if d.get("interesse_inicial") == "servicos":
+                d["tipo_registro"] = "Serviço"
+                sessao["etapa"] = "descricao_servico"
+                enviar_texto(numero, "Descreva o serviço desejado:")
+                return
+
+            if d.get("interesse_inicial") == "pecas":
+                d["tipo_registro"] = "Peça"
+                sessao["etapa"] = "descricao_peca"
+                enviar_texto(numero, "Descreva qual peça você procura:")
+                return
+
+            if d.get("interesse_inicial") == "pos_venda":
+                d["tipo_registro"] = "Pós-venda"
+                sessao["etapa"] = "posvenda_data_compra"
+                enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
+                return
+
+            if d.get("interesse_inicial") == "retorno_oficina":
+                d["tipo_registro"] = "Retorno Oficina"
+                sessao["etapa"] = "retorno_data_servico"
+                enviar_texto(numero, "Qual foi a data do serviço realizado?")
+                return
 
         # Cliente novo segue fluxo completo
         sessao["etapa"] = "pergunta_nascimento"
@@ -495,6 +513,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA — DIRECIONA CONFORME INTERESSE
     # ============================================================
+
+    # 🔥 Cliente antigo NÃO pode cair nesta etapa
+    if sessao.get("veio_de") == "cliente_antigo":
+        return  # ← Bloqueia totalmente esta etapa para quem clicou SIM
 
     if etapa == "descricao_especifica":
 
