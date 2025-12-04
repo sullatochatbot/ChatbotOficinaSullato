@@ -317,8 +317,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "ja_cadastrado":
 
         if texto in ["cad_sim", "Sim", "sim"]:
+            sessao["veio_de"] = "cliente_antigo"   # ← NOVO
             sessao["etapa"] = "pergunta_cpf"
-            enviar_texto(numero, "Digite apenas o *CPF* que usou no último atendimento (123.456.789-00):")
+            enviar_texto(numero, "Digite seu *CPF* para continuar:")
             return
 
         if texto in ["cad_nao", "Não", "nao", "não"]:
@@ -345,6 +346,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "pergunta_cpf":
 
+        # Normalizar CPF
         cpf_limpo = (
             texto.replace(".", "")
             .replace("-", "")
@@ -359,73 +361,20 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             enviar_texto(numero, "CPF inválido. Digite no formato 123.456.789-00")
             return
 
-        d["cpf"] = texto
+        # 🔥 AGORA NÃO CONSULTA MAIS A PLANILHA
+        # Cliente que disse "SIM" segue fluxo reduzido
+        if d.get("interesse_inicial") in ["servicos", "pecas", "pos_venda", "retorno_oficina"] \
+            and sessao.get("veio_de") == "cliente_antigo":
 
-        # 🔥 CONSULTAR CPF NA PLANILHA
-        try:
-            resposta = requests.post(
-                GOOGLE_SHEETS_URL,
-                json={
-                    "secret": SECRET_KEY,
-                    "route": "consulta_cliente",
-                    "dados": {"cpf": texto, "fone": numero},
-                },
-                timeout=8
-            ).json()
-
-            # ========================================================
-            # ✅ CPF ENCONTRADO — CARREGAR DADOS SEM QUEBRAR ETAPAS
-            # ========================================================
-            if resposta.get("encontrado"):
-
-                campos = [
-                    "nome", "nascimento", "tipo_veiculo", "marca_modelo",
-                    "ano_modelo", "km", "combustivel", "placa",
-                    "cep", "endereco_completo", "numero", "complemento"
-                ]
-
-                for campo in campos:
-                    valor = resposta.get(campo, "")
-                    if valor is None:
-                        valor = ""
-                    d[campo] = valor
-
-                enviar_texto(
-                    numero,
-                    "🔎 *Encontramos seu cadastro!*\n"
-                    "Seus dados foram carregados automaticamente.\n\n"
-                    "Agora descreva o que você precisa 👇"
-                )
-
-                sessao["etapa"] = "descricao_especifica"
-                return
-
-            # ========================================================
-            # ❌ CPF NÃO ENCONTRADO — PEDIR NOME
-            # ========================================================
-            else:
-                sessao["etapa"] = "pergunta_nome_nao_encontrado"
-                enviar_texto(
-                    numero,
-                    "Não encontrei seu cadastro pelo CPF.\n\nDigite seu *nome completo*:"
-                )
-                return
-
-        except Exception as e:
-            print("Erro ao consultar memória:", e)
-            sessao["etapa"] = "pergunta_nascimento"
-            enviar_texto(numero, "Digite sua *data de nascimento*:")            
+            sessao["etapa"] = "descricao_especifica"
+            enviar_texto(numero, "Perfeito! Agora descreva o que você precisa 👇")
             return
 
-    # ============================================================
-    # CPF NÃO ENCONTRADO → PEDIR NOME
-    # ============================================================
-
-    if etapa == "pergunta_nome_nao_encontrado":
-        d["nome"] = texto
+        # Cliente novo segue fluxo completo
         sessao["etapa"] = "pergunta_nascimento"
-        enviar_texto(numero, "Digite sua *data de nascimento*:")        
+        enviar_texto(numero, "Digite sua *data de nascimento*:")
         return
+
     # ============================================================
     # PERGUNTA NASCIMENTO
     # ============================================================
