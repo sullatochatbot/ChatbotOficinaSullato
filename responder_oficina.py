@@ -434,16 +434,16 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ============================================================
 
     if etapa == "pergunta_tipo_veiculo":
-        if texto in ["tv_passeio", "Passeio"]:
+        if texto == "tv_passeio":
             d["tipo_veiculo"] = "Passeio"
-        elif texto in ["tv_utilitario", "Utilitário"]:
+        elif texto == "tv_utilitario":
             d["tipo_veiculo"] = "Utilitário"
         else:
             enviar_texto(numero, "Escolha uma opção válida.")
             return
 
         sessao["etapa"] = "pergunta_marca_modelo"
-        enviar_texto(numero, "Digite *marca/modelo*:")        
+        enviar_texto(numero, "Digite *marca/modelo*:")
         return
 
     if etapa == "pergunta_marca_modelo":
@@ -527,7 +527,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
-        return
+        return responder_oficina(numero, "", nome_whatsapp)
 
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA — DIRECIONA CONFORME INTERESSE
@@ -573,6 +573,22 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "descricao_servico":
         d["descricao"] = texto
+
+        # pular ORIGEM para cliente antigo
+        if sessao.get("veio_de") == "cliente_antigo":
+            sessao["etapa"] = "confirmacao"
+            resumo = construir_resumo(d)
+            enviar_botoes(
+                numero,
+                resumo + "\n\nConfirma?",
+                [
+                    {"id": "confirmar", "title": "Confirmar"},
+                    {"id": "editar", "title": "Editar"},
+                ],
+            )
+            return
+
+        # cliente novo segue origem normalmente
         sessao["etapa"] = "servico_origem"
         enviar_texto(
             numero,
@@ -610,6 +626,20 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "descricao_peca":
         d["descricao"] = texto
+
+        if sessao.get("veio_de") == "cliente_antigo":
+            sessao["etapa"] = "confirmacao"
+            resumo = construir_resumo(d)
+            enviar_botoes(
+                numero,
+                resumo + "\n\nConfirma a peça?",
+                [
+                    {"id": "confirmar", "title": "Confirmar"},
+                    {"id": "editar", "title": "Editar"},
+                ],
+            )
+            return
+
         sessao["etapa"] = "peca_origem"
         enviar_texto(
             numero,
