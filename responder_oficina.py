@@ -527,15 +527,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
-        return responder_oficina(numero, "", nome_whatsapp)
+        return
 
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA — DIRECIONA CONFORME INTERESSE
     # ============================================================
 
-    # 🔥 Cliente antigo NÃO pode cair nesta etapa
-    if sessao.get("veio_de") == "cliente_antigo":
-        return  # ← Bloqueia totalmente esta etapa para quem clicou SIM
+    # (removido bloco que causava travamento)
 
     if etapa == "descricao_especifica":
 
