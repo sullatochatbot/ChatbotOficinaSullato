@@ -99,6 +99,30 @@ def enviar_botoes(numero, texto, botoes):
         print("Erro enviar botões:", e)
 
 # ============================================================
+# ENVIAR IMAGEM
+# ============================================================
+
+def enviar_imagem(numero, url):
+    try:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": numero,
+            "type": "image",
+            "image": {"link": url}
+        }
+
+        headers = {
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json",
+        }
+
+        r = requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
+        print("📤 Enviando imagem:", r.status_code, r.text)
+
+    except Exception as e:
+        print("❌ Erro enviar imagem:", e)
+
+# ============================================================
 # RESETAR SESSÃO
 # ============================================================
 

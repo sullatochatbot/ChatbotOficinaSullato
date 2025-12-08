@@ -1,7 +1,7 @@
 import os
 import json
 from flask import Flask, request
-from responder_oficina import responder_oficina
+from responder_oficina import responder_oficina, enviar_imagem   # ← IMPORTANTE
 
 app = Flask(__name__)
 
@@ -59,41 +59,27 @@ def receber_mensagem():
                     numero = contato.get("wa_id")
                     nome_whatsapp = contato.get("profile", {}).get("name", "Cliente")
 
-                    # =====================================
-                    # LER TODAS AS POSSIBILIDADES DE TEXTO
-                    # =====================================
-
                     texto = ""
 
-                    # 🔹 Texto normal
                     if mensagem.get("type") == "text":
                         texto = mensagem["text"]["body"]
 
-                    # 🔹 Botões INTERACTIVE → BUTTON_REPLY
                     elif mensagem.get("type") == "interactive":
                         inter = mensagem.get("interactive", {})
 
-                        # Botão de resposta rápida
                         if inter.get("type") == "button_reply":
                             texto = inter["button_reply"]["id"]
 
-                        # Lista (list_reply)
                         elif inter.get("type") == "list_reply":
                             texto = inter["list_reply"]["id"]
 
-                    # 🔹 Caso futuramente venha message["button"] (novo formato)
                     if "button" in mensagem:
                         texto = mensagem["button"].get("payload") or mensagem["button"].get("text", "")
 
-                    # Se ainda vier vazio, evita quebrar
                     if texto == "":
                         texto = "undefined"
 
                     print(f"➡️ Texto interpretado: {texto}")
-
-                    # =====================================
-                    # ENTREGAR PRO RESPONDER
-                    # =====================================
 
                     responder_oficina(numero, texto, nome_whatsapp)
 
@@ -104,6 +90,35 @@ def receber_mensagem():
         return "ERRO", 200
 
 
+# ============================================================
+# ⚡ NOVA ROTA: RECEBER DISPARO DO GOOGLE SHEETS
+# ============================================================
+
+@app.route("/disparo_midia", methods=["POST"])
+def disparo_midia():
+    try:
+        data = request.get_json()
+
+        print("📥 DISPARO MIDIA RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
+
+        numero = data.get("numero")
+        imagem_url = data.get("imagem_url")
+
+        if not numero or not imagem_url:
+            return {"erro": "Payload inválido"}, 400
+
+        enviar_imagem(numero, imagem_url)
+
+        return {"status": "OK", "mensagem": "Imagem enviada"}, 200
+
+    except Exception as e:
+        print("❌ ERRO DISPARO MIDIA:", str(e))
+        return {"erro": str(e)}, 500
+
+
+# ============================================================
+# EXECUÇÃO DO FLASK — APENAS UMA VEZ
+# ============================================================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
