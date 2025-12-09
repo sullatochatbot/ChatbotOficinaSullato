@@ -1,11 +1,12 @@
 import os
 import json
 from flask import Flask, request
-from responder_oficina import responder_oficina, enviar_imagem   # ← IMPORTANTE
+from responder_oficina import responder_oficina, enviar_imagem, enviar_texto   # ← IMPORTANTE
 
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN")
+
 
 @app.route("/", methods=["GET"])
 def home():
@@ -66,10 +67,8 @@ def receber_mensagem():
 
                     elif mensagem.get("type") == "interactive":
                         inter = mensagem.get("interactive", {})
-
                         if inter.get("type") == "button_reply":
                             texto = inter["button_reply"]["id"]
-
                         elif inter.get("type") == "list_reply":
                             texto = inter["list_reply"]["id"]
 
@@ -91,7 +90,7 @@ def receber_mensagem():
 
 
 # ============================================================
-# ⚡ NOVA ROTA: RECEBER DISPARO DO GOOGLE SHEETS
+# ⚡ NOVA VERSÃO: DISPARO DE MÍDIA COM MENSAGEM ANTES DA FOTO
 # ============================================================
 
 @app.route("/disparo_midia", methods=["POST"])
@@ -107,9 +106,16 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
+        # 1) ENVIA TEXTO ANTES DA IMAGEM
+        enviar_texto(
+            numero,
+            "Olá! 👋\nConfira a *oferta especial do mês* da Sullato Oficina e Peças!"
+        )
+
+        # 2) ENVIA A IMAGEM
         enviar_imagem(numero, imagem_url)
 
-        return {"status": "OK", "mensagem": "Imagem enviada"}, 200
+        return {"status": "OK", "mensagem": "Texto e imagem enviados"}, 200
 
     except Exception as e:
         print("❌ ERRO DISPARO MIDIA:", str(e))
