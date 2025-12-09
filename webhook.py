@@ -1,7 +1,8 @@
 import os
 import json
+import time
 from flask import Flask, request
-from responder_oficina import responder_oficina, enviar_imagem, enviar_texto   # ← IMPORTANTE
+from responder_oficina import responder_oficina, enviar_imagem, enviar_texto
 
 app = Flask(__name__)
 
@@ -90,7 +91,7 @@ def receber_mensagem():
 
 
 # ============================================================
-# ⚡ NOVA VERSÃO: DISPARO DE MÍDIA COM MENSAGEM ANTES DA FOTO
+# ⚡ DISPARO DE MÍDIA — TEXTO DO TEMPLATE + IMAGEM
 # ============================================================
 
 @app.route("/disparo_midia", methods=["POST"])
@@ -106,13 +107,26 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
-        # 1) ENVIA TEXTO ANTES DA IMAGEM
-        enviar_texto(
-            numero,
-            "Olá! 👋\nConfira a *oferta especial do mês* da Sullato Oficina e Peças!"
+        # ============================================================
+        # TEXTO OFICIAL DO TEMPLATE (VERSÃO LIMPA)
+        # ============================================================
+
+        texto_template = (
+            "Olá! 👋\n"
+            "Confira a *Oferta Especial do Mês da Oficina Sullato!* 🔧🚗\n\n"
+            "Clique na imagem abaixo e veja como aproveitar esta condição exclusiva!"
         )
 
-        # 2) ENVIA A IMAGEM
+        # Remove quebras invisíveis no final
+        texto_final = texto_template.rstrip()
+
+        # 1) ENVIA TEXTO ANTES DA IMAGEM
+        enviar_texto(numero, texto_final)
+
+        # Garantir que o WhatsApp processe a mensagem anterior primeiro
+        time.sleep(0.4)
+
+        # 2) ENVIA A IMAGEM COMO MENSAGEM NORMAL
         enviar_imagem(numero, imagem_url)
 
         return {"status": "OK", "mensagem": "Texto e imagem enviados"}, 200
