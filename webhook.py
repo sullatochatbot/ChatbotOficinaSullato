@@ -1,13 +1,15 @@
 import os
 import json
 import time
+import requests
 from flask import Flask, request
 from responder_oficina import responder_oficina, enviar_imagem, enviar_texto
 
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN")
-
+WA_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 
 # ============================================================
 # HOME
@@ -18,7 +20,7 @@ def home():
 
 
 # ============================================================
-# VALIDAÇÃO DO WEBHOOK (META → FLASK)
+# VERIFICAÇÃO DO WEBHOOK (META → FLASK)
 # ============================================================
 @app.route("/webhook", methods=["GET"])
 def verificar_token():
@@ -65,7 +67,7 @@ def receber_mensagem():
                     if msg.get("type") == "text":
                         texto = msg["text"]["body"]
 
-                    # Botões
+                    # Botões interativos
                     elif msg.get("type") == "interactive":
                         inter = msg["interactive"]
                         if inter["type"] == "button_reply":
@@ -73,7 +75,7 @@ def receber_mensagem():
                         elif inter["type"] == "list_reply":
                             texto = inter["list_reply"]["id"]
 
-                    # Quando vier como "button"
+                    # Botões padrão
                     if "button" in msg:
                         texto = msg["button"].get("payload") or msg["button"].get("text", "")
 
@@ -81,7 +83,6 @@ def receber_mensagem():
                         texto = "undefined"
 
                     print(f"➡️ Texto interpretado: {texto}")
-
                     responder_oficina(numero, texto, nome_whatsapp)
 
         return "EVENT_RECEIVED", 200
@@ -92,7 +93,33 @@ def receber_mensagem():
 
 
 # ============================================================
-# DISPARO DE MÍDIA (TEXTO + IMAGEM)
+# FUNÇÃO NOVA — ENVIA TEMPLATE COM BOTÕES (oficina_disparo)
+# ============================================================
+def enviar_template_oficina_disparo(numero):
+    url = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": numero,
+        "type": "template",
+        "template": {
+            "name": "oficina_disparo",
+            "language": { "code": "pt_BR" }
+        }
+    }
+
+    headers = {
+        "Authorization": f"Bearer {WA_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    res = requests.post(url, headers=headers, json=payload)
+    print("📤 ENVIO TEMPLATE:", res.text)
+    return res
+
+
+# ============================================================
+# DISPARO DE MÍDIA (TEMPLATE + IMAGEM)
 # ============================================================
 @app.route("/disparo_midia", methods=["POST"])
 def disparo_midia():
@@ -107,21 +134,14 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
-        # Texto aprovado no template
-        texto = (
-            "Olá! 👋\n"
-            "Confira a *Oferta Especial do Mês da Oficina Sullato!* 🔧🚗\n\n"
-            "Clique na imagem abaixo e veja como aproveitar esta condição exclusiva!"
-        )
+        # 1) envia template com botões
+        enviar_template_oficina_disparo(numero)
+        time.sleep(0.5)
 
-        # 1) Enviar texto
-        enviar_texto(numero, texto)
-        time.sleep(0.4)
-
-        # 2) Enviar imagem
+        # 2) envia a imagem em seguida
         enviar_imagem(numero, imagem_url)
 
-        return {"status": "OK", "mensagem": "Texto e imagem enviados"}, 200
+        return {"status": "OK", "mensagem": "TEMPLATE + IMAGEM enviados"}, 200
 
     except Exception as e:
         print("❌ ERRO DISPARO MIDIA:", str(e))
