@@ -63,7 +63,7 @@ def receber_mensagem():
 
                     texto = ""
 
-                    # Texto comum
+                    # Texto normal
                     if msg.get("type") == "text":
                         texto = msg["text"]["body"]
 
@@ -92,7 +92,6 @@ def receber_mensagem():
         return "ERRO", 200
 
 
-
 # ============================================================
 # ENVIO DO TEMPLATE `oficina_disparo` (com botões Olá / Stop)
 # ============================================================
@@ -117,7 +116,6 @@ def enviar_template_oficina_disparo(numero):
     res = requests.post(url, headers=headers, json=payload)
     print("📤 ENVIO TEMPLATE:", res.text)
     return res
-
 
 
 # ============================================================
@@ -148,7 +146,6 @@ def disparo_midia():
     except Exception as e:
         print("❌ ERRO DISPARO MIDIA:", str(e))
         return {"erro": str(e)}, 500
-
 
 
 # ============================================================
