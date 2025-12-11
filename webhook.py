@@ -63,9 +63,11 @@ def receber_mensagem():
 
                     texto = ""
 
+                    # Texto normal
                     if mensagem.get("type") == "text":
                         texto = mensagem["text"]["body"]
 
+                    # Botões / lista
                     elif mensagem.get("type") == "interactive":
                         inter = mensagem.get("interactive", {})
                         if inter.get("type") == "button_reply":
@@ -73,6 +75,7 @@ def receber_mensagem():
                         elif inter.get("type") == "list_reply":
                             texto = inter["list_reply"]["id"]
 
+                    # Quando vem campo "button"
                     if "button" in mensagem:
                         texto = mensagem["button"].get("payload") or mensagem["button"].get("text", "")
 
@@ -91,7 +94,7 @@ def receber_mensagem():
 
 
 # ============================================================
-# ⚡ DISPARO DE MÍDIA — TEXTO DO TEMPLATE + IMAGEM
+# ⚡ DISPARO DE MÍDIA — TEXTO + IMAGEM
 # ============================================================
 
 @app.route("/disparo_midia", methods=["POST"])
@@ -107,26 +110,22 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
-        # ============================================================
-        # TEXTO OFICIAL DO TEMPLATE (VERSÃO LIMPA)
-        # ============================================================
-
+        # Texto igual ao template aprovado
         texto_template = (
             "Olá! 👋\n"
             "Confira a *Oferta Especial do Mês da Oficina Sullato!* 🔧🚗\n\n"
             "Clique na imagem abaixo e veja como aproveitar esta condição exclusiva!"
         )
 
-        # Remove quebras invisíveis no final
         texto_final = texto_template.rstrip()
 
-        # 1) ENVIA TEXTO ANTES DA IMAGEM
+        # 1) Envia texto
         enviar_texto(numero, texto_final)
 
-        # Garantir que o WhatsApp processe a mensagem anterior primeiro
+        # Dar tempo da API processar
         time.sleep(0.4)
 
-        # 2) ENVIA A IMAGEM COMO MENSAGEM NORMAL
+        # 2) Envia a imagem
         enviar_imagem(numero, imagem_url)
 
         return {"status": "OK", "mensagem": "Texto e imagem enviados"}, 200
@@ -137,7 +136,7 @@ def disparo_midia():
 
 
 # ============================================================
-# EXECUÇÃO DO FLASK — APENAS UMA VEZ
+# EXECUÇÃO DO FLASK
 # ============================================================
 
 if __name__ == "__main__":
