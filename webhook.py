@@ -75,7 +75,7 @@ def receber_mensagem():
                         elif inter["type"] == "list_reply":
                             texto = inter["list_reply"]["id"]
 
-                    # Botões padrão
+                    # Botões herdados
                     if "button" in msg:
                         texto = msg["button"].get("payload") or msg["button"].get("text", "")
 
@@ -92,8 +92,9 @@ def receber_mensagem():
         return "ERRO", 200
 
 
+
 # ============================================================
-# FUNÇÃO NOVA — ENVIA TEMPLATE COM BOTÕES (oficina_disparo)
+# ENVIO DO TEMPLATE `oficina_disparo` (com botões Olá / Stop)
 # ============================================================
 def enviar_template_oficina_disparo(numero):
     url = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
@@ -118,8 +119,9 @@ def enviar_template_oficina_disparo(numero):
     return res
 
 
+
 # ============================================================
-# DISPARO DE MÍDIA (TEMPLATE + IMAGEM)
+# ENDPOINT DE DISPARO — USA TEMPLATE + IMAGEM
 # ============================================================
 @app.route("/disparo_midia", methods=["POST"])
 def disparo_midia():
@@ -134,11 +136,11 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
-        # 1) envia template com botões
+        # 1) Envia template com botões
         enviar_template_oficina_disparo(numero)
-        time.sleep(0.5)
+        time.sleep(0.7)
 
-        # 2) envia a imagem em seguida
+        # 2) Envia imagem
         enviar_imagem(numero, imagem_url)
 
         return {"status": "OK", "mensagem": "TEMPLATE + IMAGEM enviados"}, 200
@@ -148,8 +150,9 @@ def disparo_midia():
         return {"erro": str(e)}, 500
 
 
+
 # ============================================================
-# EXECUÇÃO DO FLASK
+# RUN FLASK
 # ============================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
