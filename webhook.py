@@ -9,15 +9,17 @@ app = Flask(__name__)
 VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN")
 
 
+# ============================================================
+# HOME
+# ============================================================
 @app.route("/", methods=["GET"])
 def home():
     return "ONLINE", 200
 
 
 # ============================================================
-# VERIFICAÇÃO DO WEBHOOK (META → FLASK)
+# VALIDAÇÃO DO WEBHOOK (META → FLASK)
 # ============================================================
-
 @app.route("/webhook", methods=["GET"])
 def verificar_token():
     mode = request.args.get("hub.mode")
@@ -33,7 +35,6 @@ def verificar_token():
 # ============================================================
 # RECEBIMENTO DE MENSAGENS (WHATSAPP → FLASK)
 # ============================================================
-
 @app.route("/webhook", methods=["POST"])
 def receber_mensagem():
     data = request.get_json()
@@ -43,10 +44,7 @@ def receber_mensagem():
 
         if "entry" in data:
             for entry in data["entry"]:
-                if "changes" not in entry:
-                    continue
-
-                for change in entry["changes"]:
+                for change in entry.get("changes", []):
                     value = change.get("value", {})
 
                     messages = value.get("messages")
@@ -55,7 +53,7 @@ def receber_mensagem():
                     if not messages or not contacts:
                         continue
 
-                    mensagem = messages[0]
+                    msg = messages[0]
                     contato = contacts[0]
 
                     numero = contato.get("wa_id")
@@ -63,23 +61,23 @@ def receber_mensagem():
 
                     texto = ""
 
-                    # Texto normal
-                    if mensagem.get("type") == "text":
-                        texto = mensagem["text"]["body"]
+                    # Texto comum
+                    if msg.get("type") == "text":
+                        texto = msg["text"]["body"]
 
-                    # Botões / lista
-                    elif mensagem.get("type") == "interactive":
-                        inter = mensagem.get("interactive", {})
-                        if inter.get("type") == "button_reply":
+                    # Botões
+                    elif msg.get("type") == "interactive":
+                        inter = msg["interactive"]
+                        if inter["type"] == "button_reply":
                             texto = inter["button_reply"]["id"]
-                        elif inter.get("type") == "list_reply":
+                        elif inter["type"] == "list_reply":
                             texto = inter["list_reply"]["id"]
 
-                    # Quando vem campo "button"
-                    if "button" in mensagem:
-                        texto = mensagem["button"].get("payload") or mensagem["button"].get("text", "")
+                    # Quando vier como "button"
+                    if "button" in msg:
+                        texto = msg["button"].get("payload") or msg["button"].get("text", "")
 
-                    if texto == "":
+                    if not texto:
                         texto = "undefined"
 
                     print(f"➡️ Texto interpretado: {texto}")
@@ -94,9 +92,8 @@ def receber_mensagem():
 
 
 # ============================================================
-# ⚡ DISPARO DE MÍDIA — TEXTO + IMAGEM
+# DISPARO DE MÍDIA (TEXTO + IMAGEM)
 # ============================================================
-
 @app.route("/disparo_midia", methods=["POST"])
 def disparo_midia():
     try:
@@ -110,22 +107,18 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
-        # Texto igual ao template aprovado
-        texto_template = (
+        # Texto aprovado no template
+        texto = (
             "Olá! 👋\n"
             "Confira a *Oferta Especial do Mês da Oficina Sullato!* 🔧🚗\n\n"
             "Clique na imagem abaixo e veja como aproveitar esta condição exclusiva!"
         )
 
-        texto_final = texto_template.rstrip()
-
-        # 1) Envia texto
-        enviar_texto(numero, texto_final)
-
-        # Dar tempo da API processar
+        # 1) Enviar texto
+        enviar_texto(numero, texto)
         time.sleep(0.4)
 
-        # 2) Envia a imagem
+        # 2) Enviar imagem
         enviar_imagem(numero, imagem_url)
 
         return {"status": "OK", "mensagem": "Texto e imagem enviados"}, 200
@@ -138,6 +131,5 @@ def disparo_midia():
 # ============================================================
 # EXECUÇÃO DO FLASK
 # ============================================================
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
