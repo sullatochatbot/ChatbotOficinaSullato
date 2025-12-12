@@ -99,28 +99,28 @@ def enviar_botoes(numero, texto, botoes):
         print("Erro enviar botões:", e)
 
 # ============================================================
-# ENVIAR IMAGEM
+# ENVIAR IMAGEM (DESATIVADO — USAR SOMENTE TEMPLATE)
 # ============================================================
 
-def enviar_imagem(numero, url):
-    try:
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": numero,
-            "type": "image",
-            "image": {"link": url}
-        }
-
-        headers = {
-            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-            "Content-Type": "application/json",
-        }
-
-        r = requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
-        print("📤 Enviando imagem:", r.status_code, r.text)
-
-    except Exception as e:
-        print("❌ Erro enviar imagem:", e)
+# def enviar_imagem(numero, url):
+#     try:
+#         payload = {
+#             "messaging_product": "whatsapp",
+#             "to": numero,
+#             "type": "image",
+#             "image": {"link": url}
+#         }
+#
+#         headers = {
+#             "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+#             "Content-Type": "application/json",
+#         }
+#
+#         r = requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
+#         print("📤 Enviando imagem:", r.status_code, r.text)
+#
+#     except Exception as e:
+#         print("❌ Erro enviar imagem:", e)
 
 # ============================================================
 # RESETAR SESSÃO
@@ -282,7 +282,15 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         # Oi / Olá / Ola → template + cria sessão
         if texto.lower() in ["oi", "olá", "ola"]:
             enviar_template_oficina_disparo(numero)
-            iniciar_sessao(numero, nome_whatsapp)
+            SESSOES[numero] = {
+                "etapa": "aguardando_ola",
+                "inicio": time.time(),
+                "dados": {
+                    "fone": numero,
+                    "nome_whatsapp": nome_whatsapp,
+                    "origem_cliente": "chatbot oficina",
+                },
+            }
             return
 
         # qualquer outra mensagem → inicia atendimento direto
@@ -295,6 +303,18 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     sessao = SESSOES[numero]
 
+    # ============================================================
+    # ✅ CORREÇÃO 2 — AGUARDANDO CLIQUE NO BOTÃO "OLÁ"
+    # ============================================================
+
+    if sessao["etapa"] == "aguardando_ola":
+        if texto.lower() in ["olá", "ola"]:
+            iniciar_sessao(numero, nome_whatsapp)
+            return
+        else:
+            # ignora qualquer coisa até clicar em "Olá"
+            return
+        
     # ============================================================
     # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
     # ============================================================
