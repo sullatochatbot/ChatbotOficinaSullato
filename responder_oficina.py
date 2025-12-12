@@ -124,6 +124,13 @@ def enviar_botoes(numero, texto, botoes):
 #         print("❌ Erro enviar imagem:", e)
 
 # ============================================================
+# ENVIAR IMAGEM (DUMMY — APENAS PARA COMPATIBILIDADE)
+# ============================================================
+
+def enviar_imagem(numero, url):
+    return
+
+# ============================================================
 # RESETAR SESSÃO
 # ============================================================
 
@@ -610,7 +617,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         if texto.lower() in ["comp_nao", "não", "nao"]:
             d["complemento"] = ""
             sessao["etapa"] = "descricao_especifica"
-            return responder_oficina(numero, "", nome_whatsapp)
+            return
 
         enviar_texto(numero, "Escolha Sim ou Não.")
         return
@@ -618,7 +625,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
-        return responder_oficina(numero, "", nome_whatsapp)
+        return
 
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA
