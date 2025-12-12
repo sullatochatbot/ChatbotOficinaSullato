@@ -214,6 +214,46 @@ def construir_resumo(d):
         f"Origem: {d.get('origem','')}\n"
         f"Feedback: {d.get('feedback','')}\n"
     )
+
+# ============================================================
+# ENVIAR TEMPLATE OFICINA_DISPARO
+# ============================================================
+
+def enviar_template_oficina_disparo(numero):
+    url = f"https://graph.facebook.com/v20.0/{os.getenv('WA_PHONE_NUMBER_ID')}/messages"
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": numero,
+        "type": "template",
+        "template": {
+            "name": "oficina_disparo",
+            "language": {"code": "pt_BR"},
+            "components": [
+                {
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": "image",
+                            "image": {
+                                "link": "https://i.imgur.com/dfepnhO.jpeg"  
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('WA_ACCESS_TOKEN')}",
+        "Content-Type": "application/json"
+    }
+
+    r = requests.post(url, json=payload, headers=headers)
+    print("📤 ENVIO TEMPLATE OFICINA_DISPARO:", r.status_code, r.text)
+    return r.text
+
 # ============================================================
 # FLUXO PRINCIPAL
 # ============================================================
@@ -243,6 +283,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     agora = time.time()
 
     # Criar sessão
+    # Disparo do template ao digitar Oi / Olá
+    if texto.lower() in ["oi", "olá", "ola"]:
+        enviar_template_oficina_disparo(numero)
+        return
+
+    # Criar sessão normal se não houver
     if numero not in SESSOES:
         iniciar_sessao(numero, nome_whatsapp)
         return
