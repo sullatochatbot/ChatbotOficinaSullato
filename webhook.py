@@ -135,11 +135,11 @@ def disparo_midia():
             return {"erro": "Payload inválido"}, 400
 
         # 1) Envia template com botões
-        enviar_template_oficina_disparo(numero)
+        enviar_imagem(numero, imagem_url)
         time.sleep(0.7)
 
         # 2) Envia imagem
-        enviar_imagem(numero, imagem_url)
+        enviar_template_oficina_disparo(numero)
 
         return {"status": "OK", "mensagem": "TEMPLATE + IMAGEM enviados"}, 200
 
