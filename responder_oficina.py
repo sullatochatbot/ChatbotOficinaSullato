@@ -327,9 +327,18 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
     # ============================================================
 
-    if texto.lower() in ["oi", "olá", "ola"] and sessao["etapa"] != "menu_inicial":
+    if texto.lower() in ["oi", "olá", "ola"]:
         reset_sessao(numero)
-        iniciar_sessao(numero, nome_whatsapp)
+        enviar_template_oficina_disparo(numero)
+        SESSOES[numero] = {
+            "etapa": "aguardando_ola",
+            "inicio": time.time(),
+            "dados": {
+                "fone": numero,
+                "nome_whatsapp": nome_whatsapp,
+                "origem_cliente": "chatbot oficina",
+            },
+        }
         return
 
     # ============================================================
@@ -617,6 +626,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         if texto.lower() in ["comp_nao", "não", "nao"]:
             d["complemento"] = ""
             sessao["etapa"] = "descricao_especifica"
+            # NÃO chama responder_oficina aqui
             return
 
         enviar_texto(numero, "Escolha Sim ou Não.")
@@ -625,6 +635,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
+        # NÃO chama responder_oficina aqui
         return
 
     # ============================================================
