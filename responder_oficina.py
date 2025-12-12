@@ -310,18 +310,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ============================================================
 
     sessao = SESSOES[numero]
-
-    # ============================================================
-    # ✅ CORREÇÃO 2 — AGUARDANDO CLIQUE NO BOTÃO "OLÁ"
-    # ============================================================
-
-    if sessao["etapa"] == "aguardando_ola":
-        if texto.lower() in ["olá", "ola"]:
-            iniciar_sessao(numero, nome_whatsapp)
-            return
-        else:
-            # ignora qualquer coisa até clicar em "Olá"
-            return
         
     # ============================================================
     # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
@@ -341,6 +329,18 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         }
         return
 
+    # ============================================================
+    # ✅ CORREÇÃO 2 — AGUARDANDO CLIQUE NO BOTÃO "OLÁ"
+    # ============================================================
+
+    if sessao["etapa"] == "aguardando_ola":
+        if texto.lower() in ["olá", "ola"]:
+            iniciar_sessao(numero, nome_whatsapp)
+            return
+        else:
+            # ignora qualquer coisa até clicar em "Olá"
+            return
+        
     # ============================================================
     # TIMEOUT
     # ============================================================
