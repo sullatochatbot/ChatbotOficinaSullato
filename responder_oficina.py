@@ -271,9 +271,16 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     # Normalização de botões
     mapa_botoes = {
+        # cadastro
         "Sim": "cad_sim", "sim": "cad_sim", "SIM": "cad_sim", "cad_sim": "cad_sim",
         "Não": "cad_nao", "Nao": "cad_nao", "NAO": "cad_nao", "não": "cad_nao",
         "nao": "cad_nao", "cad_nao": "cad_nao",
+
+        # botão OLÁ do template
+        "ola": "btn_ola",
+        "Olá": "btn_ola",
+        "olá": "btn_ola",
+        "btn_ola": "btn_ola",
     }
 
     if texto in mapa_botoes:
@@ -334,7 +341,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ============================================================
 
     if sessao["etapa"] == "aguardando_ola":
-        if texto.lower() in ["olá", "ola"]:
+        if texto == "btn_ola":
             iniciar_sessao(numero, nome_whatsapp)
             return
         else:
