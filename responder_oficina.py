@@ -282,20 +282,29 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     agora = time.time()
 
-    # Criar sessão
-    # Disparo do template ao digitar Oi / Olá
-    if texto.lower() in ["oi", "olá", "ola"]:
-        enviar_template_oficina_disparo(numero)
-        return
+    # ============================================================
+    # PRIMEIRA MENSAGEM / INÍCIO DE SESSÃO
+    # ============================================================
 
-    # Criar sessão normal se não houver
+    # Se NÃO existir sessão ainda → significa primeiro contato
     if numero not in SESSOES:
+
+        # Se usuário enviar Oi/Olá → envia template e NÃO cria sessão
+        if texto.lower() in ["oi", "olá", "ola"]:
+            enviar_template_oficina_disparo(numero)
+            return
+
+        # Qualquer outra mensagem após o template → inicia atendimento
         iniciar_sessao(numero, nome_whatsapp)
         return
 
+    # ============================================================
+    # SESSÃO EXISTENTE
+    # ============================================================
+
     sessao = SESSOES[numero]
 
-    # Timeout
+    # Timeout automático
     if agora - sessao.get("inicio", 0) > TIMEOUT_SESSAO:
         enviar_texto(numero, "Sessão expirada. Vamos recomeçar!")
         iniciar_sessao(numero, nome_whatsapp)
