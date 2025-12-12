@@ -289,28 +289,40 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     agora = time.time()
 
     # ============================================================
-    # PRIMEIRA MENSAGEM — SEM SESSÃO
+    # PRIMEIRA MENSAGEM — SEM SESSÃO (ACEITA QUALQUER CONTEÚDO)
     # ============================================================
 
     if numero not in SESSOES:
 
-        # Oi / Olá / Ola → template + cria sessão
-        if texto.lower() in ["oi", "olá", "ola"]:
-            enviar_template_oficina_disparo(numero)
-            SESSOES[numero] = {
-                "etapa": "aguardando_ola",
-                "inicio": time.time(),
-                "dados": {
-                    "fone": numero,
-                    "nome_whatsapp": nome_whatsapp,
-                    "origem_cliente": "chatbot oficina",
-                },
-            }
-            return
+        # opcional: envia template UMA VEZ
+        enviar_template_oficina_disparo(numero)
 
-        # qualquer outra mensagem → inicia atendimento direto
         iniciar_sessao(numero, nome_whatsapp)
         return
+
+    # ============================================================
+    # PRIMEIRA MENSAGEM — SEM SESSÃO
+    # ============================================================
+
+    #if numero not in SESSOES:
+    #
+    #   # Oi / Olá / Ola → template + cria sessão
+    #    if texto.lower() in ["oi", "olá", "ola"]:
+    #        enviar_template_oficina_disparo(numero)
+    #        SESSOES[numero] = {
+    #           "etapa": "aguardando_ola",
+    #           "inicio": time.time(),
+    #           "dados": {
+    #               "fone": numero,
+    #               "nome_whatsapp": nome_whatsapp,
+    #                "origem_cliente": "chatbot oficina",
+    #           },
+    #       }
+    #       return
+    #
+    #   # qualquer outra mensagem → inicia atendimento direto
+    #   iniciar_sessao(numero, nome_whatsapp)
+    #   return
 
     # ============================================================
     # SESSÃO EXISTENTE
@@ -322,19 +334,19 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
     # ============================================================
 
-    if texto.lower() in ["oi", "olá", "ola"]:
-        reset_sessao(numero)
-        enviar_template_oficina_disparo(numero)
-        SESSOES[numero] = {
-            "etapa": "aguardando_ola",
-            "inicio": time.time(),
-            "dados": {
-                "fone": numero,
-                "nome_whatsapp": nome_whatsapp,
-                "origem_cliente": "chatbot oficina",
-            },
-        }
-        return
+    #if texto.lower() in ["oi", "olá", "ola"]:
+    #   reset_sessao(numero)
+    #    enviar_template_oficina_disparo(numero)
+    #   SESSOES[numero] = {
+    #        "etapa": "aguardando_ola",
+    #        "inicio": time.time(),
+    #        "dados": {
+    #            "fone": numero,
+    #            "nome_whatsapp": nome_whatsapp,
+    #            "origem_cliente": "chatbot oficina",
+    #        },
+    #    }
+    #    return
 
     # ============================================================
     # ✅ CORREÇÃO 2 — AGUARDANDO CLIQUE NO BOTÃO "OLÁ"
@@ -634,7 +646,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             d["complemento"] = ""
             sessao["etapa"] = "descricao_especifica"
             # NÃO chama responder_oficina aqui
-            return
+            return responder_oficina(numero, "", nome_whatsapp)
 
         enviar_texto(numero, "Escolha Sim ou Não.")
         return
@@ -643,7 +655,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
         # NÃO chama responder_oficina aqui
-        return
+        return responder_oficina(numero, "", nome_whatsapp)
 
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA
