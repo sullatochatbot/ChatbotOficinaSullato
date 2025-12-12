@@ -185,7 +185,6 @@ def salvar_via_webapp(sessao):
 
     except Exception as e:
         print("❌ Erro salvar webapp:", e)
-
 # ============================================================
 # RESUMO FINAL
 # ============================================================
@@ -236,7 +235,7 @@ def enviar_template_oficina_disparo(numero):
                         {
                             "type": "image",
                             "image": {
-                                "link": "https://i.imgur.com/dfepnhO.jpeg"  
+                                "link": "https://i.imgur.com/dfepnhO.jpeg"
                             }
                         }
                     ]
@@ -262,19 +261,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = texto_digitado.strip()
 
-    # 🔥 Normalização universal de botões e textos
+    # Normalização de botões
     mapa_botoes = {
-        "Sim": "cad_sim",
-        "sim": "cad_sim",
-        "SIM": "cad_sim",
-        "cad_sim": "cad_sim",
-
-        "Não": "cad_nao",
-        "Nao": "cad_nao",
-        "NAO": "cad_nao",
-        "não": "cad_nao",
-        "nao": "cad_nao",
-        "cad_nao": "cad_nao",
+        "Sim": "cad_sim", "sim": "cad_sim", "SIM": "cad_sim", "cad_sim": "cad_sim",
+        "Não": "cad_nao", "Nao": "cad_nao", "NAO": "cad_nao", "não": "cad_nao",
+        "nao": "cad_nao", "cad_nao": "cad_nao",
     }
 
     if texto in mapa_botoes:
@@ -283,18 +274,17 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     agora = time.time()
 
     # ============================================================
-    # PRIMEIRA MENSAGEM / INÍCIO DE SESSÃO
+    # PRIMEIRA MENSAGEM — SEM SESSÃO
     # ============================================================
 
-    # Se NÃO existir sessão ainda → significa primeiro contato
     if numero not in SESSOES:
 
-        # Se usuário enviar Oi/Olá → envia template e NÃO cria sessão
+        # Oi/Olá → manda template e não cria sessão
         if texto.lower() in ["oi", "olá", "ola"]:
             enviar_template_oficina_disparo(numero)
             return
 
-        # Qualquer outra mensagem após o template → inicia atendimento
+        # qualquer outra → inicia atendimento
         iniciar_sessao(numero, nome_whatsapp)
         return
 
@@ -304,7 +294,19 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     sessao = SESSOES[numero]
 
-    # Timeout automático
+    # ============================================================
+    # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
+    # ============================================================
+
+    if texto.lower() in ["oi", "olá", "ola"]:
+        reset_sessao(numero)
+        iniciar_sessao(numero, nome_whatsapp)
+        return
+
+    # ============================================================
+    # TIMEOUT
+    # ============================================================
+
     if agora - sessao.get("inicio", 0) > TIMEOUT_SESSAO:
         enviar_texto(numero, "Sessão expirada. Vamos recomeçar!")
         iniciar_sessao(numero, nome_whatsapp)
@@ -371,7 +373,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 ]
             )
             return
-
         if texto == "5":
             d["interesse_inicial"] = "endereco"
 
@@ -409,15 +410,15 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             return
 
     # ============================================================
-    # ETAPA: JA_CADASTRADO  
+    # ETAPA: JA_CADASTRADO
     # ============================================================
 
     if etapa == "ja_cadastrado":
 
         if texto == "cad_sim":
-            sessao["veio_de"] = "cliente_antigo"   # ← NOVO
+            sessao["veio_de"] = "cliente_antigo"
             sessao["etapa"] = "pergunta_cpf"
-            enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00) para continuar:")
+            enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00):")
             return
 
         if texto == "cad_nao":
@@ -435,31 +436,26 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_nome":
         d["nome"] = texto
         sessao["etapa"] = "pergunta_cpf"
-        enviar_texto(numero, "Digite *seu CPF* (ex: 123.456.789-00):")     
+        enviar_texto(numero, "Digite *seu CPF* (ex: 123.456.789-00):")
         return
 
     # ============================================================
-    # PERGUNTA CPF + CONSULTA SHEETS
+    # PERGUNTA CPF
     # ============================================================
 
     if etapa == "pergunta_cpf":
 
-        # Normalizar CPF
         cpf_limpo = (
-            texto.replace(".", "")
-            .replace("-", "")
-            .replace(" ", "")
-            .strip()
+            texto.replace(".", "").replace("-", "").replace(" ", "").strip()
         )
 
         if len(cpf_limpo) == 11 and cpf_limpo.isdigit():
-            texto = f"{cpf_limpo[0:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:11]}"
-            d["cpf"] = texto
+            texto_fmt = f"{cpf_limpo[0:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:11]}"
+            d["cpf"] = texto_fmt
         else:
             enviar_texto(numero, "CPF inválido. Digite no formato 123.456.789-00")
             return
 
-        # 🔥 FLUXO REDUZIDO PARA CLIENTE ANTIGO (SIM)
         if sessao.get("veio_de") == "cliente_antigo":
 
             if d.get("interesse_inicial") == "servicos":
@@ -486,13 +482,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 enviar_texto(numero, "Qual foi a data do serviço realizado?")
                 return
 
-        # Cliente novo segue fluxo completo
         sessao["etapa"] = "pergunta_nascimento"
         enviar_texto(numero, "Digite sua *data de nascimento*:")
         return
 
     # ============================================================
-    # PERGUNTA NASCIMENTO
+    # NASCIMENTO → VEÍCULO
     # ============================================================
 
     if etapa == "pergunta_nascimento":
@@ -507,10 +502,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             ],
         )
         return
-
-    # ============================================================
-    # TIPO DE VEÍCULO
-    # ============================================================
 
     if etapa == "pergunta_tipo_veiculo":
         if texto == "tv_passeio":
@@ -528,23 +519,22 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "pergunta_marca_modelo":
         d["marca_modelo"] = texto
         sessao["etapa"] = "pergunta_ano_modelo"
-        enviar_texto(numero, "Digite o *ano fab/mod*:")        
+        enviar_texto(numero, "Digite o *ano fab/mod*:")
         return
 
     if etapa == "pergunta_ano_modelo":
         d["ano_modelo"] = texto
         sessao["etapa"] = "pergunta_km"
-        enviar_texto(numero, "Digite o KM atual:")        
+        enviar_texto(numero, "Digite o KM atual:")
         return
 
     if etapa == "pergunta_km":
         d["km"] = texto
         sessao["etapa"] = "pergunta_combustivel"
-        enviar_texto(numero, "Qual o combustível? (Gasolina, Etanol, Diesel, Flex ou GNV)")        
+        enviar_texto(numero, "Qual o combustível? (Gasolina, Etanol, Diesel, Flex ou GNV)")
         return
 
     if etapa == "pergunta_combustivel":
-
         combustivel = texto.lower()
         if combustivel not in ["gasolina", "etanol", "diesel", "flex", "gnv"]:
             enviar_texto(numero, "Informe um combustível válido.")
@@ -552,17 +542,17 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         d["combustivel"] = combustivel.title()
         sessao["etapa"] = "pergunta_placa"
-        enviar_texto(numero, "Digite a *placa*:")        
+        enviar_texto(numero, "Digite a *placa*:")
         return
 
     if etapa == "pergunta_placa":
         d["placa"] = texto
         sessao["etapa"] = "pergunta_cep"
-        enviar_texto(numero, "Digite o *CEP* (00000-000):")        
+        enviar_texto(numero, "Digite o *CEP* (00000-000):")
         return
 
     # ============================================================
-    # CEP → CONSULTA AUTOMÁTICA
+    # CEP + ENDEREÇO
     # ============================================================
 
     if etapa == "pergunta_cep":
@@ -572,7 +562,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         d["endereco_completo"] = endereco
 
         sessao["etapa"] = "pergunta_numero_endereco"
-        enviar_texto(numero, "Digite o *número*:")        
+        enviar_texto(numero, "Digite o *número*:")
         return
 
     if etapa == "pergunta_numero_endereco":
@@ -592,7 +582,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto.lower() in ["comp_sim", "sim"]:
             sessao["etapa"] = "complemento_digitacao"
-            enviar_texto(numero, "Digite o complemento:")            
+            enviar_texto(numero, "Digite o complemento:")
             return
 
         if texto.lower() in ["comp_nao", "não", "nao"]:
@@ -609,41 +599,33 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         return responder_oficina(numero, "", nome_whatsapp)
 
     # ============================================================
-    # DESCRIÇÃO ESPECÍFICA — DIRECIONA CONFORME INTERESSE
+    # DESCRIÇÃO ESPECÍFICA
     # ============================================================
-
-    # (removido bloco que causava travamento)
 
     if etapa == "descricao_especifica":
 
-        texto = texto.strip()
-
-        # Serviços
         if d.get("interesse_inicial") == "servicos":
             d["tipo_registro"] = "Serviço"
             sessao["etapa"] = "descricao_servico"
-            enviar_texto(numero, "Descreva o serviço desejado:")            
+            enviar_texto(numero, "Descreva o serviço desejado:")
             return
 
-        # Peças
         if d.get("interesse_inicial") == "pecas":
             d["tipo_registro"] = "Peça"
             sessao["etapa"] = "descricao_peca"
-            enviar_texto(numero, "Descreva qual peça você procura:")            
+            enviar_texto(numero, "Descreva qual peça você procura:")
             return
 
-        # Pós Venda
         if d.get("interesse_inicial") == "pos_venda":
             d["tipo_registro"] = "Pós-venda"
             sessao["etapa"] = "posvenda_data_compra"
-            enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")            
+            enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
             return
 
-        # Retorno Oficina
         if d.get("interesse_inicial") == "retorno_oficina":
             d["tipo_registro"] = "Retorno Oficina"
             sessao["etapa"] = "retorno_data_servico"
-            enviar_texto(numero, "Qual foi a data do serviço realizado?")            
+            enviar_texto(numero, "Qual foi a data do serviço realizado?")
             return
 
     # ============================================================
@@ -653,7 +635,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "descricao_servico":
         d["descricao"] = texto
 
-        # pular ORIGEM para cliente antigo
         if sessao.get("veio_de") == "cliente_antigo":
             sessao["etapa"] = "confirmacao"
             resumo = construir_resumo(d)
@@ -667,7 +648,6 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
             return
 
-        # cliente novo segue origem normalmente
         sessao["etapa"] = "servico_origem"
         enviar_texto(
             numero,
