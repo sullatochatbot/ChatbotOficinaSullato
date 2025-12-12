@@ -219,7 +219,7 @@ def construir_resumo(d):
 # ============================================================
 
 def enviar_template_oficina_disparo(numero):
-    url = f"https://graph.facebook.com/v20.0/{os.getenv('WA_PHONE_NUMBER_ID')}/messages"
+    url = f"https://graph.facebook.com/v17.0/{os.getenv('WA_PHONE_NUMBER_ID')}/messages"
 
     payload = {
         "messaging_product": "whatsapp",
@@ -279,12 +279,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if numero not in SESSOES:
 
-        # Oi/Olá → manda template e não cria sessão
+        # Oi / Olá / Ola → template + cria sessão
         if texto.lower() in ["oi", "olá", "ola"]:
             enviar_template_oficina_disparo(numero)
+            iniciar_sessao(numero, nome_whatsapp)
             return
 
-        # qualquer outra → inicia atendimento
+        # qualquer outra mensagem → inicia atendimento direto
         iniciar_sessao(numero, nome_whatsapp)
         return
 
@@ -298,7 +299,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
     # ============================================================
 
-    if texto.lower() in ["oi", "olá", "ola"]:
+    if texto.lower() in ["oi", "olá", "ola"] and sessao["etapa"] != "menu_inicial":
         reset_sessao(numero)
         iniciar_sessao(numero, nome_whatsapp)
         return
