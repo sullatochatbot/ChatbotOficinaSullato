@@ -127,8 +127,69 @@ def enviar_botoes(numero, texto, botoes):
 # ENVIAR IMAGEM (DUMMY — APENAS PARA COMPATIBILIDADE)
 # ============================================================
 
+def obter_imagem_oficina_mes():
+    try:
+        payload = {
+            "secret": SECRET_KEY,
+            "route": "get_imagem_mes"
+        }
+
+        r = requests.post(GOOGLE_SHEETS_URL, json=payload, timeout=10)
+        data = r.json()
+
+        url = data.get("url", "")
+        if not url:
+            print("⚠️ Planilha não retornou URL de imagem")
+            return ""
+
+        return normalizar_dropbox(url)
+
+    except Exception as e:
+        print("❌ Erro ao buscar imagem da planilha:", e)
+        return ""
+
+
+def normalizar_dropbox(url):
+    if not url:
+        return ""
+
+    u = url.strip()
+    u = u.replace("https://www.dropbox.com", "https://dl.dropboxusercontent.com")
+    u = u.replace("?dl=0", "")
+    return u
+
+
 def enviar_imagem(numero, url):
-    return
+    if not url:
+        print("⚠️ URL de imagem vazia, envio ignorado")
+        return
+
+    try:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": numero,
+            "type": "image",
+            "image": {
+                "link": url
+            }
+        }
+
+        headers = {
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
+        r = requests.post(
+            f"{WHATSAPP_API_URL}/messages",
+            json=payload,
+            headers=headers,
+            timeout=10
+        )
+
+        print("📤 ENVIO IMAGEM:", r.status_code, r.text)
+
+    except Exception as e:
+        print("❌ Erro ao enviar imagem:", e)
 
 # ============================================================
 # RESETAR SESSÃO
@@ -235,17 +296,7 @@ def enviar_template_oficina_disparo(numero):
             "name": "oficina_disparo2",
             "language": {
                 "code": "pt_BR"
-            },
-            "components": [
-                {
-                    "type": "header",
-                    "parameters": [
-                        {
-                            "type": "image"
-                        }
-                    ]
-                }
-            ]
+            }
         }
     }
 
@@ -293,12 +344,19 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ============================================================
 
     if numero not in SESSOES:
+        url = obter_imagem_oficina_mes()
+
+        if url:
+            enviar_imagem(numero, url)
+
+        iniciar_sessao(numero, nome_whatsapp)
+        return
 
     #    # opcional: envia template UMA VEZ
     #   enviar_template_oficina_disparo(numero)
 
-        iniciar_sessao(numero, nome_whatsapp)
-        return
+    #   iniciar_sessao(numero, nome_whatsapp)
+    #   return
 
     # ============================================================
     # PRIMEIRA MENSAGEM — SEM SESSÃO
