@@ -235,7 +235,17 @@ def enviar_template_oficina_disparo(numero):
             "name": "oficina_disparo2",
             "language": {
                 "code": "pt_BR"
-            }
+            },
+            "components": [
+                {
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": "image"
+                        }
+                    ]
+                }
+            ]
         }
     }
 
