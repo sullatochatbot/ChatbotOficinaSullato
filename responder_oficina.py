@@ -223,9 +223,6 @@ def construir_resumo(d):
     )
 
 # ============================================================
-# ENVIAR TEMPLATE OFICINA_DISPARO
-# ============================================================
-
 def enviar_template_oficina_disparo(numero):
     url = f"https://graph.facebook.com/v17.0/{os.getenv('WA_PHONE_NUMBER_ID')}/messages"
 
@@ -235,20 +232,7 @@ def enviar_template_oficina_disparo(numero):
         "type": "template",
         "template": {
             "name": "oficina_disparo2",
-            "language": {"code": "pt_BR"},
-            "components": [
-                {
-                    "type": "header",
-                    "parameters": [
-                        {
-                            "type": "image",
-                            "image": {
-                                "link": "https://i.imgur.com/dfepnhO.jpeg"
-                            }
-                        }
-                    ]
-                }
-            ]
+            "language": {"code": "pt_BR"}
         }
     }
 
@@ -644,17 +628,62 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto.lower() in ["comp_nao", "não", "nao"]:
             d["complemento"] = ""
-            sessao["etapa"] = "descricao_especifica"
-            return
+
+            # DISPARO DIRETO DA PRÓXIMA ETAPA
+            if d.get("interesse_inicial") == "servicos":
+                d["tipo_registro"] = "Serviço"
+                sessao["etapa"] = "descricao_servico"
+                enviar_texto(numero, "Descreva o serviço desejado:")
+                return
+
+            if d.get("interesse_inicial") == "pecas":
+                d["tipo_registro"] = "Peça"
+                sessao["etapa"] = "descricao_peca"
+                enviar_texto(numero, "Descreva qual peça você procura:")
+                return
+
+            if d.get("interesse_inicial") == "pos_venda":
+                d["tipo_registro"] = "Pós-venda"
+                sessao["etapa"] = "posvenda_data_compra"
+                enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
+                return
+
+            if d.get("interesse_inicial") == "retorno_oficina":
+                d["tipo_registro"] = "Retorno Oficina"
+                sessao["etapa"] = "retorno_data_servico"
+                enviar_texto(numero, "Qual foi a data do serviço realizado?")
+                return
 
         enviar_texto(numero, "Escolha Sim ou Não.")
         return
 
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
-        sessao["etapa"] = "descricao_especifica"
-        return
-    
+
+        if d.get("interesse_inicial") == "servicos":
+            d["tipo_registro"] = "Serviço"
+            sessao["etapa"] = "descricao_servico"
+            enviar_texto(numero, "Descreva o serviço desejado:")
+            return
+
+        if d.get("interesse_inicial") == "pecas":
+            d["tipo_registro"] = "Peça"
+            sessao["etapa"] = "descricao_peca"
+            enviar_texto(numero, "Descreva qual peça você procura:")
+            return
+
+        if d.get("interesse_inicial") == "pos_venda":
+            d["tipo_registro"] = "Pós-venda"
+            sessao["etapa"] = "posvenda_data_compra"
+            enviar_texto(numero, "Qual a data da compra / aquisição do veículo?")
+            return
+
+        if d.get("interesse_inicial") == "retorno_oficina":
+            d["tipo_registro"] = "Retorno Oficina"
+            sessao["etapa"] = "retorno_data_servico"
+            enviar_texto(numero, "Qual foi a data do serviço realizado?")
+            return
+
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA
     # ============================================================
