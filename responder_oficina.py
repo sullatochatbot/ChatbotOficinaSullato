@@ -318,7 +318,12 @@ def enviar_template_oficina_disparo(numero):
 
 def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
-    texto = texto_digitado.strip()
+    texto = texto_digitado.strip().lower()
+
+    # === TRATAMENTO DO BOTÃO "OLÁ" DO TEMPLATE ===
+    if texto in ["olá", "ola"]:
+        iniciar_sessao(numero, nome_whatsapp)
+        return
 
     # Normalização de botões
     mapa_botoes = {
