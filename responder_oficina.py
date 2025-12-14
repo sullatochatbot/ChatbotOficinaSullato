@@ -234,7 +234,7 @@ def enviar_template_oficina_disparo(numero):
         "to": numero,
         "type": "template",
         "template": {
-            "name": "oficina_disparo",
+            "name": "oficina_disparo2",
             "language": {"code": "pt_BR"},
             "components": [
                 {
