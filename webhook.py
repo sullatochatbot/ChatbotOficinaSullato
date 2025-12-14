@@ -91,11 +91,10 @@ def receber_mensagem():
         print("❌ ERRO NO WEBHOOK:", str(e))
         return "ERRO", 200
 
-
 # ============================================================
 # ENVIO DO TEMPLATE `oficina_disparo` (com botões Olá / Stop)
 # ============================================================
-def enviar_template_oficina_disparo(numero):
+def enviar_template_oficina_disparo(numero, imagem_url):
     url = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
 
     payload = {
@@ -104,7 +103,18 @@ def enviar_template_oficina_disparo(numero):
         "type": "template",
         "template": {
             "name": "oficina_disparo",
-            "language": { "code": "pt_BR" }
+            "language": { "code": "pt_BR" },
+            "components": [
+                {
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": "image",
+                            "image": { "link": imagem_url }
+                        }
+                    ]
+                }
+            ]
         }
     }
 
@@ -113,20 +123,16 @@ def enviar_template_oficina_disparo(numero):
         "Content-Type": "application/json"
     }
 
-    res = requests.post(url, headers=headers, json=payload)
-    print("📤 ENVIO TEMPLATE:", res.text)
-    return res
-
+    return requests.post(url, headers=headers, json=payload)
 
 # ============================================================
 # ENDPOINT DE DISPARO — USA TEMPLATE + IMAGEM
 # ============================================================
+
 @app.route("/disparo_midia", methods=["POST"])
 def disparo_midia():
     try:
         data = request.get_json()
-
-        print("📥 DISPARO MIDIA RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
 
         numero = data.get("numero")
         imagem_url = data.get("imagem_url")
@@ -134,19 +140,14 @@ def disparo_midia():
         if not numero or not imagem_url:
             return {"erro": "Payload inválido"}, 400
 
-        # 1) Envia template com botões
-        enviar_imagem(numero, imagem_url)
-        time.sleep(0.7)
+        # UM ÚNICO ENVIO: TEMPLATE + IMAGEM NO HEADER
+        enviar_template_oficina_disparo(numero, imagem_url)
 
-        # 2) Envia imagem
-        enviar_template_oficina_disparo(numero)
-
-        return {"status": "OK", "mensagem": "TEMPLATE + IMAGEM enviados"}, 200
+        return {"status": "OK"}, 200
 
     except Exception as e:
         print("❌ ERRO DISPARO MIDIA:", str(e))
         return {"erro": str(e)}, 500
-
 
 # ============================================================
 # RUN FLASK

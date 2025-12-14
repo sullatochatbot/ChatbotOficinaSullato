@@ -342,21 +342,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ============================================================
     # PRIMEIRA MENSAGEM — SEM SESSÃO (ACEITA QUALQUER CONTEÚDO)
     # ============================================================
-
+    
     if numero not in SESSOES:
-        url = obter_imagem_oficina_mes()
-
-        if url:
-            enviar_imagem(numero, url)
-
         iniciar_sessao(numero, nome_whatsapp)
         return
-
-    #    # opcional: envia template UMA VEZ
-    #   enviar_template_oficina_disparo(numero)
-
-    #   iniciar_sessao(numero, nome_whatsapp)
-    #   return
 
     # ============================================================
     # PRIMEIRA MENSAGEM — SEM SESSÃO
