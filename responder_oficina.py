@@ -228,11 +228,14 @@ def enviar_template_oficina_disparo(numero):
 
     payload = {
         "messaging_product": "whatsapp",
+        "recipient_type": "individual",
         "to": numero,
         "type": "template",
         "template": {
             "name": "oficina_disparo2",
-            "language": {"code": "pt_BR"}
+            "language": {
+                "code": "pt_BR"
+            }
         }
     }
 
@@ -241,9 +244,12 @@ def enviar_template_oficina_disparo(numero):
         "Content-Type": "application/json"
     }
 
-    r = requests.post(url, json=payload, headers=headers)
-    print("📤 ENVIO TEMPLATE OFICINA_DISPARO:", r.status_code, r.text)
-    return r.text
+    response = requests.post(url, headers=headers, json=payload)
+
+    print("📤 TEMPLATE STATUS:", response.status_code)
+    print("📤 TEMPLATE BODY:", response.text)
+
+    return response.text
 
 # ============================================================
 # FLUXO PRINCIPAL
