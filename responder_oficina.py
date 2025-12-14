@@ -294,8 +294,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if numero not in SESSOES:
 
-        # opcional: envia template UMA VEZ
-        enviar_template_oficina_disparo(numero)
+    #    # opcional: envia template UMA VEZ
+    #   enviar_template_oficina_disparo(numero)
 
         iniciar_sessao(numero, nome_whatsapp)
         return
@@ -352,13 +352,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ✅ CORREÇÃO 2 — AGUARDANDO CLIQUE NO BOTÃO "OLÁ"
     # ============================================================
 
-    if sessao["etapa"] == "aguardando_ola":
-        if texto == "btn_ola":
-            iniciar_sessao(numero, nome_whatsapp)
-            return
-        else:
-            # ignora qualquer coisa até clicar em "Olá"
-            return
+    #if sessao["etapa"] == "aguardando_ola":
+    #    if texto == "btn_ola":
+    #       iniciar_sessao(numero, nome_whatsapp)
+    #        return
+    #    else:
+    #        # ignora qualquer coisa até clicar em "Olá"
+    #        return
         
     # ============================================================
     # TIMEOUT
@@ -645,8 +645,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         if texto.lower() in ["comp_nao", "não", "nao"]:
             d["complemento"] = ""
             sessao["etapa"] = "descricao_especifica"
-            # NÃO chama responder_oficina aqui
-            return responder_oficina(numero, "", nome_whatsapp)
+            return
 
         enviar_texto(numero, "Escolha Sim ou Não.")
         return
@@ -654,9 +653,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if etapa == "complemento_digitacao":
         d["complemento"] = texto
         sessao["etapa"] = "descricao_especifica"
-        # NÃO chama responder_oficina aqui
-        return responder_oficina(numero, "", nome_whatsapp)
-
+        return
+    
     # ============================================================
     # DESCRIÇÃO ESPECÍFICA
     # ============================================================
