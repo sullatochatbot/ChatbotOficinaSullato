@@ -1,29 +1,41 @@
+# ============================================================
+# WEBHOOK — CHATBOT UP LIGADO
+# Base Flask + WhatsApp Business API (Meta)
+# ============================================================
+
 import os
 import json
-import time
-import requests
 from flask import Flask, request
-from responder_oficina import responder_oficina, enviar_imagem, enviar_texto
+from dotenv import load_dotenv
+
+from responder_up_ligado import responder_up_ligado
+
+load_dotenv()
 
 app = Flask(__name__)
 
-VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN")
-WA_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+# ============================================================
+# VARIÁVEIS DE AMBIENTE
+# ============================================================
+
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
+WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 
 # ============================================================
-# HOME
+# HOME — HEALTHCHECK
 # ============================================================
+
 @app.route("/", methods=["GET"])
 def home():
-    return "ONLINE", 200
-
+    return "UP LIGADO ONLINE", 200
 
 # ============================================================
-# VERIFICAÇÃO DO WEBHOOK (META → FLASK)
+# VERIFICAÇÃO DO WEBHOOK (META)
 # ============================================================
+
 @app.route("/webhook", methods=["GET"])
-def verificar_token():
+def verificar_webhook():
     mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
@@ -33,10 +45,10 @@ def verificar_token():
 
     return "Token inválido", 403
 
+# ============================================================
+# RECEBIMENTO DE MENSAGENS (META → FLASK)
+# ============================================================
 
-# ============================================================
-# RECEBIMENTO DE MENSAGENS (WHATSAPP → FLASK)
-# ============================================================
 @app.route("/webhook", methods=["POST"])
 def receber_mensagem():
     data = request.get_json()
@@ -44,46 +56,53 @@ def receber_mensagem():
     try:
         print("📥 RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
 
-        if "entry" in data:
-            for entry in data["entry"]:
-                for change in entry.get("changes", []):
-                    value = change.get("value", {})
+        if "entry" not in data:
+            return "IGNORADO", 200
 
-                    messages = value.get("messages")
-                    contacts = value.get("contacts")
+        for entry in data["entry"]:
+            for change in entry.get("changes", []):
+                value = change.get("value", {})
 
-                    if not messages or not contacts:
-                        continue
+                messages = value.get("messages")
+                contacts = value.get("contacts")
 
-                    msg = messages[0]
-                    contato = contacts[0]
+                if not messages or not contacts:
+                    continue
 
-                    numero = contato.get("wa_id")
-                    nome_whatsapp = contato.get("profile", {}).get("name", "Cliente")
+                msg = messages[0]
+                contato = contacts[0]
 
-                    texto = ""
+                numero = contato.get("wa_id")
+                nome_whatsapp = contato.get("profile", {}).get("name", "Cliente")
 
-                    # Texto normal
-                    if msg.get("type") == "text":
-                        texto = msg["text"]["body"]
+                texto = ""
 
-                    # Botões interativos
-                    elif msg.get("type") == "interactive":
-                        inter = msg["interactive"]
-                        if inter["type"] == "button_reply":
-                            texto = inter["button_reply"]["id"]
-                        elif inter["type"] == "list_reply":
-                            texto = inter["list_reply"]["id"]
+                # TEXTO NORMAL
+                if msg.get("type") == "text":
+                    texto = msg["text"]["body"]
 
-                    # Botões herdados
-                    if "button" in msg:
-                        texto = msg["button"].get("payload") or msg["button"].get("text", "")
+                # BOTÕES INTERATIVOS
+                elif msg.get("type") == "interactive":
+                    inter = msg["interactive"]
+                    if inter["type"] == "button_reply":
+                        texto = inter["button_reply"]["id"]
+                    elif inter["type"] == "list_reply":
+                        texto = inter["list_reply"]["id"]
 
-                    if not texto:
-                        texto = "undefined"
+                # BOTÕES LEGADOS (fallback)
+                if "button" in msg:
+                    texto = msg["button"].get("payload") or msg["button"].get("text", "")
 
-                    print(f"➡️ Texto interpretado: {texto}")
-                    responder_oficina(numero, texto, nome_whatsapp)
+                if not texto:
+                    texto = "undefined"
+
+                print(f"➡️ Texto interpretado: {texto}")
+
+                responder_up_ligado(
+                    numero=numero,
+                    texto_recebido=texto,
+                    nome_whatsapp=nome_whatsapp
+                )
 
         return "EVENT_RECEIVED", 200
 
@@ -92,65 +111,8 @@ def receber_mensagem():
         return "ERRO", 200
 
 # ============================================================
-# ENVIO DO TEMPLATE `oficina_disparo` (com botões Olá / Stop)
-# ============================================================
-def enviar_template_oficina_disparo(numero, imagem_url):
-    url = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
-
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": numero,
-        "type": "template",
-        "template": {
-            "name": "oficina_disparo2",
-            "language": { "code": "pt_BR" },
-            "components": [
-                {
-                    "type": "header",
-                    "parameters": [
-                        {
-                            "type": "image",
-                            "image": { "link": imagem_url }
-                        }
-                    ]
-                }
-            ]
-        }
-    }
-
-    headers = {
-        "Authorization": f"Bearer {WA_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    return requests.post(url, headers=headers, json=payload)
-
-# ============================================================
-# ENDPOINT DE DISPARO — USA TEMPLATE + IMAGEM
+# RUN LOCAL / RENDER
 # ============================================================
 
-@app.route("/disparo_midia", methods=["POST"])
-def disparo_midia():
-    try:
-        data = request.get_json()
-
-        numero = data.get("numero")
-        imagem_url = data.get("imagem_url")
-
-        if not numero or not imagem_url:
-            return {"erro": "Payload inválido"}, 400
-
-        # UM ÚNICO ENVIO: TEMPLATE + IMAGEM NO HEADER
-        enviar_template_oficina_disparo(numero, imagem_url)
-
-        return {"status": "OK"}, 200
-
-    except Exception as e:
-        print("❌ ERRO DISPARO MIDIA:", str(e))
-        return {"erro": str(e)}, 500
-
-# ============================================================
-# RUN FLASK
-# ============================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
