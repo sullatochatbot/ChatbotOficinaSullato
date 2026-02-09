@@ -320,23 +320,25 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = texto_digitado.strip().lower()
 
-    # === TRATAMENTO DO BOTÃO "OLÁ" DO TEMPLATE ===
-    if texto in ["olá", "ola"]:
+    # ============================================================
+    # 🚨 REGRA MESTRA — QUALQUER TEXTO INICIA O ATENDIMENTO
+    # ============================================================
+
+    if numero not in SESSOES:
         iniciar_sessao(numero, nome_whatsapp)
         return
 
-    # Normalização de botões
-    mapa_botoes = {
-        # cadastro
-        "Sim": "cad_sim", "sim": "cad_sim", "SIM": "cad_sim", "cad_sim": "cad_sim",
-        "Não": "cad_nao", "Nao": "cad_nao", "NAO": "cad_nao", "não": "cad_nao",
-        "nao": "cad_nao", "cad_nao": "cad_nao",
+    # ============================================================
+    # NORMALIZAÇÃO DE BOTÕES
+    # ============================================================
 
-        # botão OLÁ do template
-        "ola": "btn_ola",
-        "Olá": "btn_ola",
-        "olá": "btn_ola",
-        "btn_ola": "btn_ola",
+    mapa_botoes = {
+        "sim": "cad_sim",
+        "cad_sim": "cad_sim",
+
+        "não": "cad_nao",
+        "nao": "cad_nao",
+        "cad_nao": "cad_nao",
     }
 
     if texto in mapa_botoes:
@@ -344,13 +346,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     agora = time.time()
 
-    # ============================================================
-    # PRIMEIRA MENSAGEM — SEM SESSÃO (ACEITA QUALQUER CONTEÚDO)
-    # ============================================================
-    
-    if numero not in SESSOES:
-        iniciar_sessao(numero, nome_whatsapp)
-        return
+    sessao = SESSOES[numero]
 
     # ============================================================
     # PRIMEIRA MENSAGEM — SEM SESSÃO
