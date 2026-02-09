@@ -53,6 +53,23 @@ def verificar_webhook():
 def receber_mensagem():
     data = request.get_json()
 
+    # ====================================================
+    # DISPARO DE MÍDIA (Apps Script → Webhook)
+    # ====================================================
+    
+    if isinstance(data, dict) and "numero" in data and "imagem_url" in data:
+        numero = data.get("numero")
+        imagem_url = data.get("imagem_url")
+
+        from enviar_midias import enviar_imagem_oficina
+
+        enviar_imagem_oficina(
+            numero=numero,
+            imagem_url=imagem_url
+        )
+
+        return "DISPARO_OK", 200
+
     try:
         print("📥 RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
 
