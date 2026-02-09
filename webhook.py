@@ -1,5 +1,5 @@
 # ============================================================
-# WEBHOOK — CHATBOT UP LIGADO
+# WEBHOOK — CHATBOT OFICINA SULLATO
 # Base Flask + WhatsApp Business API (Meta)
 # ============================================================
 
@@ -8,7 +8,7 @@ import json
 from flask import Flask, request
 from dotenv import load_dotenv
 
-from responder_up_ligado import responder_up_ligado
+from responder_oficina import responder_oficina
 
 load_dotenv()
 
@@ -28,7 +28,7 @@ WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 
 @app.route("/", methods=["GET"])
 def home():
-    return "UP LIGADO ONLINE", 200
+    return "CHATBOT OFICINA SULLATO ONLINE", 200
 
 # ============================================================
 # VERIFICAÇÃO DO WEBHOOK (META)
@@ -98,9 +98,9 @@ def receber_mensagem():
 
                 print(f"➡️ Texto interpretado: {texto}")
 
-                responder_up_ligado(
+                responder_oficina(
                     numero=numero,
-                    texto_recebido=texto,
+                    texto_digitado=texto,
                     nome_whatsapp=nome_whatsapp
                 )
 
