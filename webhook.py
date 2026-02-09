@@ -56,8 +56,14 @@ def receber_mensagem():
     # ====================================================
     # DISPARO DE MÍDIA (Apps Script → Webhook)
     # ====================================================
-    
-    if isinstance(data, dict) and "numero" in data and "imagem_url" in data:
+
+    if (
+        isinstance(data, dict)
+        and data.get("origem") == "apps_script_disparo"
+        and "numero" in data
+        and "imagem_url" in data
+    ):
+
         numero = data.get("numero")
         imagem_url = data.get("imagem_url")
 
