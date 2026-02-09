@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 from responder_oficina import responder_oficina
 
+from enviar_midias import enviar_imagem_oficina
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -51,7 +53,7 @@ def verificar_webhook():
 
 @app.route("/webhook", methods=["POST"])
 def receber_mensagem():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
 
     # ====================================================
     # DISPARO DE MÍDIA (Apps Script → Webhook)
@@ -67,14 +69,16 @@ def receber_mensagem():
         numero = data.get("numero")
         imagem_url = data.get("imagem_url")
 
-        from enviar_midias import enviar_imagem_oficina
+        try:
+            enviar_imagem_oficina(
+                numero=numero,
+                imagem_url=imagem_url
+            )
+            return "DISPARO_OK", 200
 
-        enviar_imagem_oficina(
-            numero=numero,
-            imagem_url=imagem_url
-        )
-
-        return "DISPARO_OK", 200
+        except Exception as e:
+            print("❌ ERRO AO ENVIAR IMAGEM:", str(e))
+            return "ERRO_ENVIO_IMAGEM", 500
 
     try:
         print("📥 RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
