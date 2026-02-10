@@ -320,90 +320,26 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
 
-    # 🚨 CORREÇÃO — QUALQUER COISA INICIA O ATENDIMENTO
+    # ✅ PRIMEIRO CONTATO — TRATAR BOTÃO "OLÁ" E TEXTO
     if numero not in SESSOES:
-        iniciar_sessao(numero, nome_whatsapp)
+
+        # Se clicou no botão "Olá"
+        if texto in ["olá", "ola", "oi"]:
+            iniciar_sessao(numero, nome_whatsapp)
+            return
+
+        # Se veio qualquer outra coisa, ignora
         return
-
-    # ============================================================
-    # NORMALIZAÇÃO DE BOTÕES
-    # ============================================================
-
-    mapa_botoes = {
-        "sim": "cad_sim",
-        "cad_sim": "cad_sim",
-
-        "não": "cad_nao",
-        "nao": "cad_nao",
-        "cad_nao": "cad_nao",
-    }
-
-    if texto in mapa_botoes:
-        texto = mapa_botoes[texto]
 
     agora = time.time()
 
     sessao = SESSOES[numero]
 
     # ============================================================
-    # PRIMEIRA MENSAGEM — SEM SESSÃO
-    # ============================================================
-
-    #if numero not in SESSOES:
-    #
-    #   # Oi / Olá / Ola → template + cria sessão
-    #    if texto.lower() in ["oi", "olá", "ola"]:
-    #        enviar_template_oficina_disparo(numero)
-    #        SESSOES[numero] = {
-    #           "etapa": "aguardando_ola",
-    #           "inicio": time.time(),
-    #           "dados": {
-    #               "fone": numero,
-    #               "nome_whatsapp": nome_whatsapp,
-    #                "origem_cliente": "chatbot oficina",
-    #           },
-    #       }
-    #       return
-    #
-    #   # qualquer outra mensagem → inicia atendimento direto
-    #   iniciar_sessao(numero, nome_whatsapp)
-    #   return
-
-    # ============================================================
     # SESSÃO EXISTENTE
     # ============================================================
 
     sessao = SESSOES[numero]
-        
-    # ============================================================
-    # ⚡ CORREÇÃO — PERMITIR OI/OLÁ A QUALQUER MOMENTO
-    # ============================================================
-
-    #if texto.lower() in ["oi", "olá", "ola"]:
-    #   reset_sessao(numero)
-    #    enviar_template_oficina_disparo(numero)
-    #   SESSOES[numero] = {
-    #        "etapa": "aguardando_ola",
-    #        "inicio": time.time(),
-    #        "dados": {
-    #            "fone": numero,
-    #            "nome_whatsapp": nome_whatsapp,
-    #            "origem_cliente": "chatbot oficina",
-    #        },
-    #    }
-    #    return
-
-    # ============================================================
-    # ✅ CORREÇÃO 2 — AGUARDANDO CLIQUE NO BOTÃO "OLÁ"
-    # ============================================================
-
-    #if sessao["etapa"] == "aguardando_ola":
-    #    if texto == "btn_ola":
-    #       iniciar_sessao(numero, nome_whatsapp)
-    #        return
-    #    else:
-    #        # ignora qualquer coisa até clicar em "Olá"
-    #        return
         
     # ============================================================
     # TIMEOUT
