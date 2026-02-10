@@ -5,12 +5,11 @@
 
 import os
 import json
+import requests
 from flask import Flask, request
 from dotenv import load_dotenv
 
 from responder_oficina import responder_oficina
-
-from enviar_midias import enviar_imagem_oficina
 
 load_dotenv()
 
@@ -48,6 +47,31 @@ def verificar_webhook():
     return "Token inválido", 403
 
 # ============================================================
+# FUNÇÃO — ENVIO DE TEMPLATE (IMAGEM + TEXTO + OLÁ / STOP)
+# ============================================================
+
+def enviar_template_oficina(numero):
+    url = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": numero,
+        "type": "template",
+        "template": {
+            "name": "oficina_promocao",   # 🔥 TEMPLATE JÁ EXISTENTE
+            "language": {"code": "pt_BR"}
+        }
+    }
+
+    headers = {
+        "Authorization": f"Bearer {WA_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    resp = requests.post(url, json=payload, headers=headers, timeout=30)
+    print("📤 TEMPLATE OFICINA:", resp.status_code, resp.text)
+
+# ============================================================
 # RECEBIMENTO DE MENSAGENS (META → FLASK)
 # ============================================================
 
@@ -56,29 +80,27 @@ def receber_mensagem():
     data = request.get_json(silent=True) or {}
 
     # ====================================================
-    # DISPARO DE MÍDIA (Apps Script → Webhook)
+    # DISPARO VIA APPS SCRIPT (IMAGEM + TEXTO + BOTÕES)
     # ====================================================
 
     if (
         isinstance(data, dict)
         and data.get("origem") == "apps_script_disparo"
         and "numero" in data
-        and "imagem_url" in data
     ):
-
         numero = data.get("numero")
-        imagem_url = data.get("imagem_url")
 
         try:
-            enviar_imagem_oficina(
-                numero=numero,
-                imagem_url=imagem_url
-            )
-            return "DISPARO_OK", 200
+            enviar_template_oficina(numero)
+            return "DISPARO_TEMPLATE_OK", 200
 
         except Exception as e:
-            print("❌ ERRO AO ENVIAR IMAGEM:", str(e))
-            return "ERRO_ENVIO_IMAGEM", 500
+            print("❌ ERRO AO ENVIAR TEMPLATE:", str(e))
+            return "ERRO_TEMPLATE", 500
+
+    # ====================================================
+    # FLUXO NORMAL DE ATENDIMENTO
+    # ====================================================
 
     try:
         print("📥 RECEBIDO:", json.dumps(data, indent=2, ensure_ascii=False))
@@ -104,11 +126,9 @@ def receber_mensagem():
 
                 texto = ""
 
-                # TEXTO NORMAL
                 if msg.get("type") == "text":
                     texto = msg["text"]["body"]
 
-                # BOTÕES INTERATIVOS
                 elif msg.get("type") == "interactive":
                     inter = msg["interactive"]
                     if inter["type"] == "button_reply":
@@ -116,14 +136,11 @@ def receber_mensagem():
                     elif inter["type"] == "list_reply":
                         texto = inter["list_reply"]["id"]
 
-                # BOTÕES LEGADOS (fallback)
                 if "button" in msg:
                     texto = msg["button"].get("payload") or msg["button"].get("text", "")
 
                 if not texto:
                     texto = "undefined"
-
-                print(f"➡️ Texto interpretado: {texto}")
 
                 responder_oficina(
                     numero=numero,
