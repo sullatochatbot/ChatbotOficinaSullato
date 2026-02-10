@@ -297,14 +297,14 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     texto = (texto_digitado or "").strip().lower()
 
     # ✅ PRIMEIRO CONTATO — TEXTO OU BOTÃO
+    
     if numero not in SESSOES:
+        texto_norm = texto.strip().lower()
 
-        # BOTÃO "Olá" → vem como ID
-        if texto in ["ola", "olá", "oi", "btn_ola", "ola_btn"]:
+        if texto_norm in ["olá", "ola", "oi"]:
             iniciar_sessao(numero, nome_whatsapp)
             return
 
-        # qualquer outra coisa ignora
         return
 
     agora = time.time()
