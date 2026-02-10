@@ -32,7 +32,18 @@ def verify():
     return "Erro", 403
 
 # ============================================================
-# ENVIO DE TEMPLATE COM IMAGEM (DISPARO)
+# NORMALIZAR URL DROPBOX (CORREÇÃO CRÍTICA)
+# ============================================================
+def normalizar_dropbox(url):
+    if not url:
+        return ""
+    u = url.strip()
+    u = u.replace("https://www.dropbox.com", "https://dl.dropboxusercontent.com")
+    u = u.replace("?dl=0", "")
+    return u
+
+# ============================================================
+# ENVIO DE TEMPLATE COM IMAGEM
 # ============================================================
 def enviar_template_oficina(numero, imagem_url):
     url = f"https://graph.facebook.com/v20.0/{WA_PHONE_NUMBER_ID}/messages"
@@ -65,7 +76,8 @@ def enviar_template_oficina(numero, imagem_url):
         "Content-Type": "application/json"
     }
 
-    requests.post(url, json=payload, headers=headers, timeout=30)
+    r = requests.post(url, json=payload, headers=headers, timeout=30)
+    print("📤 TEMPLATE:", r.status_code, r.text)
 
 # ============================================================
 # WEBHOOK POST
@@ -75,12 +87,13 @@ def webhook():
     data = request.get_json(silent=True) or {}
 
     # ========================================================
-    # DISPARO VIA APPS SCRIPT (OBRIGATÓRIO)
+    # DISPARO VIA APPS SCRIPT (CORRIGIDO)
     # ========================================================
     if data.get("origem") == "apps_script_disparo":
+        imagem = normalizar_dropbox(data.get("imagem_url"))
         enviar_template_oficina(
-            numero=data["numero"],
-            imagem_url=data["imagem_url"]
+            numero=data.get("numero"),
+            imagem_url=imagem
         )
         return "OK", 200
 
