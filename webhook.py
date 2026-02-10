@@ -119,19 +119,15 @@ def webhook():
             # ===== INTERACTIVE (BOTÕES / LISTA) =====
             elif msg.get("type") == "interactive":
                 interactive = msg.get("interactive", {})
-                itype = interactive.get("type")
+                tipo = interactive.get("type")
 
-                if itype == "button_reply":
-                    texto = (
-                        interactive.get("button_reply", {}).get("id")
-                        or interactive.get("button_reply", {}).get("title")
-                    )
+                if tipo == "button_reply":
+                    texto = interactive["button_reply"].get("id") \
+                            or interactive["button_reply"].get("title")
 
-                elif itype == "list_reply":
-                    texto = (
-                        interactive.get("list_reply", {}).get("id")
-                        or interactive.get("list_reply", {}).get("title")
-                    )
+                elif tipo == "list_reply":
+                    texto = interactive["list_reply"].get("id") \
+                            or interactive["list_reply"].get("title")
 
             if texto:
                 print(f"👉 RECEBIDO: {texto}")
