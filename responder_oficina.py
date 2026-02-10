@@ -301,19 +301,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if numero not in SESSOES:
         texto_norm = texto.strip().lower()
 
-        # aceita texto OU botão como primeiro contato
         if texto_norm in ["olá", "ola", "oi"] or texto_norm.startswith("btn_"):
-            SESSOES[numero] = {"etapa": "inicio"}
-        else:
+            iniciar_sessao(numero, nome_whatsapp)
             return
 
     agora = time.time()
-
-    sessao = SESSOES[numero]
-
-    # ============================================================
-    # SESSÃO EXISTENTE
-    # ============================================================
 
     sessao = SESSOES[numero]
         
@@ -336,7 +328,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "menu_inicial":
 
-        if texto == "1":
+        if texto in ["1", "btn_servicos"]:
             d["interesse_inicial"] = "servicos"
             sessao["etapa"] = "ja_cadastrado"
             enviar_botoes(
@@ -349,7 +341,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
             return
 
-        if texto == "2":
+        if texto in ["2", "btn_pecas"]:
             d["interesse_inicial"] = "pecas"
             sessao["etapa"] = "ja_cadastrado"
             enviar_botoes(
@@ -362,7 +354,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
             return
 
-        if texto == "3":
+        if texto in ["3", "btn_pos_venda"]:
             d["interesse_inicial"] = "pos_venda"
             sessao["etapa"] = "ja_cadastrado"
             enviar_botoes(
@@ -375,7 +367,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
             return
 
-        if texto == "4":
+        if texto in ["4", "btn_retorno"]:
             d["interesse_inicial"] = "retorno_oficina"
             sessao["etapa"] = "ja_cadastrado"
             enviar_botoes(
@@ -387,7 +379,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 ]
             )
             return
-        if texto == "5":
+        if texto in ["5", "btn_endereco"]:
             d["interesse_inicial"] = "endereco"
 
             salvar_via_webapp(sessao)
@@ -428,13 +420,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "ja_cadastrado":
 
-        if texto == "cad_sim":
+        if texto in ["cad_sim", "btn_cad_sim"]:
             sessao["veio_de"] = "cliente_antigo"
             sessao["etapa"] = "pergunta_cpf"
             enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00):")
             return
 
-        if texto == "cad_nao":
+        if texto in ["cad_nao", "btn_cad_nao"]:
             sessao["etapa"] = "pergunta_nome"
             enviar_texto(numero, "Digite seu nome completo:")
             return
@@ -593,12 +585,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "pergunta_complemento":
 
-        if texto.lower() in ["comp_sim", "sim"]:
+        if texto.lower() in ["comp_sim", "btn_comp_sim", "sim"]:
             sessao["etapa"] = "complemento_digitacao"
             enviar_texto(numero, "Digite o complemento:")
             return
 
-        if texto.lower() in ["comp_nao", "não", "nao"]:
+        if texto.lower() in ["comp_nao", "btn_comp_nao", "não", "nao"]:
             d["complemento"] = ""
 
             # DISPARO DIRETO DA PRÓXIMA ETAPA
@@ -862,7 +854,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         texto_normalizado = texto.strip().lower()
 
-        if texto_normalizado in ["confirmar", "confirm", "ok", "confirmar_button", "id_confirmar"]:
+        if texto_normalizado in ["confirmar"]:
             salvar_via_webapp(sessao)
             reset_sessao(numero)
             enviar_texto(
@@ -872,7 +864,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
             return
 
-        if texto_normalizado in ["editar", "corrigir", "editar_button"]:
+        if texto_normalizado in ["editar"]:
             sessao["etapa"] = "pergunta_nome"
             enviar_texto(numero, "Vamos corrigir. Digite seu nome completo:")
             return
