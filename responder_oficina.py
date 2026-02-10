@@ -100,30 +100,6 @@ def enviar_botoes(numero, texto, botoes):
         print("Erro enviar botões:", e)
 
 # ============================================================
-# ENVIAR IMAGEM (DESATIVADO — USAR SOMENTE TEMPLATE)
-# ============================================================
-
-# def enviar_imagem(numero, url):
-#     try:
-#         payload = {
-#             "messaging_product": "whatsapp",
-#             "to": numero,
-#             "type": "image",
-#             "image": {"link": url}
-#         }
-#
-#         headers = {
-#             "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-#             "Content-Type": "application/json",
-#         }
-#
-#         r = requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
-#         print("📤 Enviando imagem:", r.status_code, r.text)
-#
-#     except Exception as e:
-#         print("❌ Erro enviar imagem:", e)
-
-# ============================================================
 # ENVIAR IMAGEM (DUMMY — APENAS PARA COMPATIBILIDADE)
 # ============================================================
 
@@ -320,15 +296,15 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
 
-    # ✅ PRIMEIRO CONTATO — TRATAR BOTÃO "OLÁ" E TEXTO
+    # ✅ PRIMEIRO CONTATO — TEXTO OU BOTÃO
     if numero not in SESSOES:
 
-        # Se clicou no botão "Olá"
-        if texto in ["olá", "ola", "oi"]:
+        # BOTÃO "Olá" → vem como ID
+        if texto in ["ola", "olá", "oi", "btn_ola", "ola_btn"]:
             iniciar_sessao(numero, nome_whatsapp)
             return
 
-        # Se veio qualquer outra coisa, ignora
+        # qualquer outra coisa ignora
         return
 
     agora = time.time()
