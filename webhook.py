@@ -32,7 +32,7 @@ def verify():
     return "Erro", 403
 
 # ============================================================
-# NORMALIZAR URL DROPBOX
+# NORMALIZA DROPBOX
 # ============================================================
 def normalizar_dropbox(url):
     if not url:
@@ -84,7 +84,9 @@ def enviar_template_oficina(numero, imagem_url):
 def webhook():
     data = request.get_json(silent=True) or {}
 
-    # ================= DISPARO APPS SCRIPT ===================
+    # ========================================================
+    # DISPARO VIA APPS SCRIPT
+    # ========================================================
     if data.get("origem") == "apps_script_disparo":
         imagem = normalizar_dropbox(data.get("imagem_url"))
         enviar_template_oficina(
@@ -93,13 +95,21 @@ def webhook():
         )
         return "OK", 200
 
-    # ================= EVENTOS META ==========================
+    # ========================================================
+    # EVENTOS META
+    # ========================================================
     if "entry" not in data:
         return "OK", 200
 
     for entry in data["entry"]:
         for change in entry.get("changes", []):
+
             value = change.get("value", {})
+
+            # IGNORA STATUS (muito importante)
+            if value.get("statuses"):
+                continue
+
             messages = value.get("messages")
             contacts = value.get("contacts")
 
@@ -107,20 +117,33 @@ def webhook():
                 continue
 
             numero = contacts[0]["wa_id"]
-            nome = contacts[0]["profile"]["name"]
+            nome = contacts[0].get("profile", {}).get("name", "")
 
             msg = messages[0]
-
-            # ===== TEXTO DIGITADO =====
             texto = ""
-            if msg.get("type") == "text":
-                texto = msg.get("text", {}).get("body", "")
 
-            # ===== BOTÃO CLICADO =====
+            # ====================================================
+            # TEXTO DIGITADO
+            # ====================================================
+            if msg.get("type") == "text":
+                texto = msg.get("text", {}).get("body", "").strip()
+
+            # ====================================================
+            # BOTÃO CLICADO (TEMPLATE / INTERATIVO)
+            # ====================================================
             elif msg.get("type") == "interactive":
                 interactive = msg.get("interactive", {})
+
+                # BOTÃO
                 if interactive.get("type") == "button_reply":
-                    texto = interactive["button_reply"]["title"]
+                    texto = interactive.get("button_reply", {}).get("id") \
+                            or interactive.get("button_reply", {}).get("title")
+
+                # LISTA (se usar no futuro)
+                elif interactive.get("type") == "list_reply":
+                    texto = interactive.get("list_reply", {}).get("id")
+
+            print("👉 RECEBIDO:", numero, texto)
 
             if texto:
                 responder_oficina(
