@@ -301,11 +301,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if numero not in SESSOES:
         texto_norm = texto.strip().lower()
 
-        if texto_norm in ["olá", "ola", "oi"]:
-            iniciar_sessao(numero, nome_whatsapp)
+        # aceita texto OU botão como primeiro contato
+        if texto_norm in ["olá", "ola", "oi"] or texto_norm.startswith("btn_"):
+            SESSOES[numero] = {"etapa": "inicio"}
+        else:
             return
-
-        return
 
     agora = time.time()
 
