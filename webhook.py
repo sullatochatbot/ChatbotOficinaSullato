@@ -138,13 +138,16 @@ def webhook():
                 tipo = interactive.get("type")
 
                 if tipo == "button_reply":
-                    texto = interactive["button_reply"]["id"]
+                    texto = interactive["button_reply"].get("id") \
+                            or interactive["button_reply"].get("title")
 
                 elif tipo == "list_reply":
-                    texto = (
-                        interactive["list_reply"].get("id")
-                        or interactive["list_reply"].get("title")
-                    )
+                    texto = interactive["list_reply"].get("id") \
+                            or interactive["list_reply"].get("title")
+
+            # ===== BOTÃO TEMPLATE MARKETING =====
+            elif msg.get("type") == "button":
+                texto = msg.get("button", {}).get("text")
 
             if texto:
                 print(f"👉 RECEBIDO: {texto}")
