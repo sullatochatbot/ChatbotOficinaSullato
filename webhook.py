@@ -84,6 +84,9 @@ def enviar_template_oficina(numero, imagem_url):
 def webhook():
     data = request.get_json(silent=True) or {}
 
+    print("📩 PAYLOAD RECEBIDO:")
+    print(data)
+
     # ===== DISPARO APPS SCRIPT =====
     if data.get("origem") == "apps_script_disparo":
         imagem = normalizar_dropbox(data.get("imagem_url"))
@@ -106,8 +109,8 @@ def webhook():
             if not messages or not contacts:
                 continue
 
-            numero = contacts[0]["wa_id"]
-            nome = contacts[0]["profile"]["name"]
+            numero = contacts[0].get("wa_id")
+            nome = contacts[0].get("profile", {}).get("name", "Cliente")
             msg = messages[0]
 
             texto = ""
@@ -132,6 +135,8 @@ def webhook():
 
             if texto:
                 print(f"👉 RECEBIDO: {texto}")
+                print("📞 ENVIANDO PARA RESPONDER:", numero)
+                
                 responder_oficina(
                     numero=numero,
                     texto_digitado=texto,

@@ -39,7 +39,7 @@ def consultar_endereco_por_cep(cep):
 # VARIÁVEIS DE AMBIENTE
 # ============================================================
 
-WHATSAPP_API_URL = f"https://graph.facebook.com/v17.0/{os.getenv('WA_PHONE_NUMBER_ID')}"
+WHATSAPP_API_URL = f"https://graph.facebook.com/v20.0/{os.getenv('WA_PHONE_NUMBER_ID')}"
 WHATSAPP_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 GOOGLE_SHEETS_URL = os.getenv("OFICINA_SHEET_WEBHOOK_URL")
 SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
@@ -299,11 +299,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ✅ PRIMEIRO CONTATO — TEXTO OU BOTÃO
     
     if numero not in SESSOES:
-        texto_norm = texto.strip().lower()
-
-        if texto_norm in ["olá", "ola", "oi"] or texto_norm.startswith("btn_"):
-            iniciar_sessao(numero, nome_whatsapp)
-            return
+        iniciar_sessao(numero, nome_whatsapp)
+        return
 
     agora = time.time()
 
