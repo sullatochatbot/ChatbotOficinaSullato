@@ -122,9 +122,19 @@ def webhook():
             if not messages or not contacts:
                 continue
 
-            numero = contacts[0].get("wa_id")
-            nome = contacts[0].get("profile", {}).get("name", "Cliente")
             msg = messages[0]
+
+            # 🔒 IGNORA eventos que não são mensagens do usuário
+            if "from" not in msg:
+                continue
+
+            numero = contacts[0].get("wa_id")
+
+            # 🔒 IGNORA se não for realmente o número do usuário
+            if msg.get("from") != numero:
+                continue
+
+            nome = contacts[0].get("profile", {}).get("name", "Cliente")
 
             texto = ""
 
@@ -154,7 +164,7 @@ def webhook():
                     from responder_oficina import reset_sessao
                     reset_sessao(numero)
 
-            if texto:
+            if texto and len(texto.strip()) > 0:
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)
 
