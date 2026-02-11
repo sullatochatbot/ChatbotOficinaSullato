@@ -300,8 +300,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     
     if numero not in SESSOES:
         iniciar_sessao(numero, nome_whatsapp)
-        return
-
+        
+    # continua fluxo normalmente
+    
     agora = time.time()
 
     sessao = SESSOES[numero]
