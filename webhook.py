@@ -23,6 +23,19 @@ def home():
     return "OK", 200
 
 # ============================================================
+# POLÍTICA DE PRIVACIDADE (META REQUIREMENT)
+# ============================================================
+@app.route("/politica-de-privacidade", methods=["GET"])
+def politica_privacidade():
+    return """
+    <h1>Política de Privacidade – Sullato Oficina</h1>
+    <p>A Sullato Oficina utiliza dados fornecidos exclusivamente para atendimento,
+    suporte e comunicação referente aos serviços solicitados.</p>
+    <p>Não compartilhamos informações com terceiros.</p>
+    <p>Contato: anderson@sullato.com.br</p>
+    """, 200
+
+# ============================================================
 # VERIFICAÇÃO META
 # ============================================================
 @app.route("/webhook", methods=["GET"])
@@ -136,7 +149,7 @@ def webhook():
             if texto:
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)
-                
+
                 responder_oficina(
                     numero=numero,
                     texto_digitado=texto,
