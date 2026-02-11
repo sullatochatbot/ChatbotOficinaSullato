@@ -149,6 +149,11 @@ def webhook():
             elif msg.get("type") == "button":
                 texto = msg.get("button", {}).get("text")
 
+                # 🔥 BOTÃO DO TEMPLATE → REINICIA SESSÃO
+                if texto.lower() in ["olá", "ola"]:
+                    from responder_oficina import reset_sessao
+                    reset_sessao(numero)
+
             if texto:
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)

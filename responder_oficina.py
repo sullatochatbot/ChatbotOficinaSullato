@@ -417,13 +417,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "ja_cadastrado":
 
-        if texto in ["cad_sim", "btn_cad_sim"]:
+        if texto in ["cad_sim", "btn_cad_sim", "sim"]:
             sessao["veio_de"] = "cliente_antigo"
             sessao["etapa"] = "pergunta_cpf"
             enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00):")
             return
 
-        if texto in ["cad_nao", "btn_cad_nao"]:
+        if texto in ["cad_nao", "btn_cad_nao", "não", "nao"]:
             sessao["etapa"] = "pergunta_nome"
             enviar_texto(numero, "Digite seu nome completo:")
             return
