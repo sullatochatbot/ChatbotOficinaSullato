@@ -128,6 +128,15 @@ def webhook():
             if "from" not in msg:
                 continue
 
+            # 🔒 BLOQUEIO DE DUPLICIDADE PELO MESSAGE ID
+            message_id = msg.get("id")
+
+            if message_id in MENSAGENS_PROCESSADAS:
+                print("⚠️ Mensagem já processada. Ignorando.")
+                continue
+
+            MENSAGENS_PROCESSADAS.add(message_id)
+
             numero = contacts[0].get("wa_id")
 
             # 🔒 IGNORA se não for realmente o número do usuário
