@@ -8,6 +8,9 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# 🔒 CONTROLE DE DUPLICIDADE (MEMÓRIA TEMPORÁRIA)
+MENSAGENS_PROCESSADAS = set()
+
 # ============================================================
 # VARIÁVEIS DE AMBIENTE
 # ============================================================
@@ -128,11 +131,14 @@ def webhook():
             if "from" not in msg:
                 continue
 
+            message_id = msg.get("id")
+
             # 🔒 BLOQUEIO DE DUPLICIDADE PELO MESSAGE ID
             message_id = msg.get("id")
 
+            # 🔒 BLOQUEIO DE DUPLICIDADE
             if message_id in MENSAGENS_PROCESSADAS:
-                print("⚠️ Mensagem já processada. Ignorando.")
+                print("⚠️ Mensagem duplicada ignorada:", message_id)
                 continue
 
             MENSAGENS_PROCESSADAS.add(message_id)
