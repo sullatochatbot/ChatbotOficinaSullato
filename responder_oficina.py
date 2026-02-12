@@ -397,13 +397,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 "Av. São Miguel, 4049/4084 – CEP 03871-000\n"
                 "☎️ (11) 2542-3332 / (11) 2542-3333\n"
                 "👉 https://wa.me/5511940545704\n"
-                "👉 https://wa.me/551125423332\n"
+                "👉 https://wa.me/551125423330\n"
                 "📸 Instagram: https://www.instagram.com/sullato.veiculos\n\n"
 
                 "📍 *Sullato Oficina e Peças*\n"
                 "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
                 "☎️ (11) 2542-3333\n"
-                "👉 https://wa.me/551125423333\n\n"
+                "👉 https://wa.me/5511994081931\n\n"
                 "🔧 *Érico*: https://wa.me/5511940497678\n"
             )
 
