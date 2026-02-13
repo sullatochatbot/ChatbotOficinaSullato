@@ -98,7 +98,10 @@ def enviar_template_oficina(numero, imagem_url):
 # ============================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(silent=True) or {}
+    try:
+        data = request.get_json(force=True)
+    except:
+        data = {}
 
     print("📩 PAYLOAD RECEBIDO:")
     print(data)
