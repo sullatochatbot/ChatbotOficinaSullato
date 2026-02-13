@@ -69,7 +69,7 @@ def enviar_template_oficina(numero, imagem_url):
         "to": numero,
         "type": "template",
         "template": {
-            "name": "oficina_promocao",
+            "name": "oficina_disparo2",
             "language": {"code": "pt_BR"},
             "components": [
                 {
