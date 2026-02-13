@@ -23,3 +23,5 @@ Baseado na estrutura funcional da Clínica Luma, foi adaptado para o atendimento
 **Grupo Sullato — Tecnologia & Inovação**  
 Desenvolvido em parceria com **ChatGPT | OpenAI**  
 © 2025 — Todos os direitos reservados.
+
+deploy render

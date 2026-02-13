@@ -104,13 +104,21 @@ def webhook():
     print(data)
 
     # ===== DISPARO APPS SCRIPT =====
-    if data.get("origem") == "apps_script_disparo":
+    if data.get("origem") == "apps_script_disparo" or data.get("tipo") == "apps_script_disparo":
+
+        numero = data.get("numero")
         imagem = normalizar_dropbox(data.get("imagem_url"))
-        enviar_template_oficina(
-            numero=data.get("numero"),
-            imagem_url=imagem
-        )
-        return "OK", 200
+
+        if numero and imagem:
+            enviar_template_oficina(
+                numero=numero,
+                imagem_url=imagem
+            )
+            print("🚀 DISPARO MENSAL EXECUTADO")
+            return "OK", 200
+        else:
+            print("❌ Dados incompletos no disparo mensal:", data)
+            return "ERRO", 400
 
     # ===== EVENTOS META =====
     if "entry" not in data:
