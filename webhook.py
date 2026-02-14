@@ -210,12 +210,6 @@ def webhook():
             # ============================================================
             if texto and len(texto.strip()) > 0:
 
-                from responder_oficina import sessao_ativa
-
-                # 🔥 REGISTRA SOMENTE SE NÃO HOUVER SESSÃO ATIVA
-                if not sessao_ativa(numero):
-                    registrar_acesso_inicial(numero, nome)
-
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)
 
