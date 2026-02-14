@@ -183,6 +183,7 @@ def iniciar_sessao(numero, nome_whatsapp):
     SESSOES[numero] = {
         "etapa": "menu_inicial",
         "inicio": time.time(),
+        "acesso_registrado": False,   # 🔥 NOVO CONTROLE
         "dados": {
             "fone": numero,
             "nome_whatsapp": nome_whatsapp,
@@ -296,28 +297,83 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
 
-    # ✅ PRIMEIRO CONTATO — TEXTO OU BOTÃO
-    
-    if numero not in SESSOES:
-        iniciar_sessao(numero, nome_whatsapp)
-        return
-
     agora = time.time()
 
-    sessao = SESSOES[numero]
-        
     # ============================================================
-    # TIMEOUT
+    # PRIMEIRO CONTATO OU NOVA SESSÃO
+    # ============================================================
+
+    if numero not in SESSOES:
+
+        iniciar_sessao(numero, nome_whatsapp)
+
+        # 🔥 REGISTRA ACESSO INICIAL
+        try:
+            payload = {
+                "secret": SECRET_KEY,
+                "route": "chatbot",
+                "dados": {
+                    "fone": numero,
+                    "nome_whatsapp": nome_whatsapp,
+                    "interesse_inicial": "acesso_inicial",
+                    "tipo_registro": "Acesso",
+                    "origem": "whatsapp"
+                }
+            }
+
+            requests.post(GOOGLE_SHEETS_URL, json=payload)
+
+        except Exception as e:
+            print("Erro registrar acesso:", e)
+
+        return
+
+    sessao = SESSOES[numero]
+
+    # ============================================================
+    # TIMEOUT DE SESSÃO
     # ============================================================
 
     if agora - sessao.get("inicio", 0) > TIMEOUT_SESSAO:
-        enviar_texto(numero, "Sessão expirada. Vamos recomeçar!")
+
+        enviar_texto(numero, "Sessão expirada. Vamos recomeçar! 👋")
+
+        # Encerra sessão anterior
+        reset_sessao(numero)
+
+        # Inicia nova sessão
         iniciar_sessao(numero, nome_whatsapp)
+
+        # 🔥 REGISTRA NOVO ACESSO POR TIMEOUT
+        try:
+            payload = {
+                "secret": SECRET_KEY,
+                "route": "chatbot",
+                "dados": {
+                    "fone": numero,
+                    "nome_whatsapp": nome_whatsapp,
+                    "interesse_inicial": "acesso_inicial",
+                    "tipo_registro": "Acesso",
+                    "origem": "whatsapp"
+                }
+            }
+
+            requests.post(GOOGLE_SHEETS_URL, json=payload, timeout=10)
+
+        except Exception as e:
+            print("Erro registrar acesso (timeout):", e)
+
         return
 
+    # ============================================================
+    # SESSÃO ATIVA
+    # ============================================================
+
+    # Atualiza tempo da sessão ativa
     sessao["inicio"] = agora
-    etapa = sessao["etapa"]
-    d = sessao["dados"]
+
+    etapa = sessao.get("etapa")
+    d = sessao.get("dados")
 
     # ============================================================
     # MENU INICIAL
