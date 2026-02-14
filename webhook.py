@@ -17,6 +17,7 @@ MENSAGENS_PROCESSADAS = set()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
+WEBAPP_URL = os.getenv("WEBAPP_URL")  # URL do Apps Script (doPost)
 
 # ============================================================
 # HOME
@@ -26,14 +27,13 @@ def home():
     return "OK", 200
 
 # ============================================================
-# POLÍTICA DE PRIVACIDADE (META REQUIREMENT)
+# POLÍTICA DE PRIVACIDADE
 # ============================================================
 @app.route("/politica-de-privacidade", methods=["GET"])
 def politica_privacidade():
     return """
     <h1>Política de Privacidade – Sullato Oficina</h1>
-    <p>A Sullato Oficina utiliza dados fornecidos exclusivamente para atendimento,
-    suporte e comunicação referente aos serviços solicitados.</p>
+    <p>A Sullato Oficina utiliza dados exclusivamente para atendimento.</p>
     <p>Não compartilhamos informações com terceiros.</p>
     <p>Contato: anderson@sullato.com.br</p>
     """, 200
@@ -57,6 +57,27 @@ def normalizar_dropbox(url):
     u = u.replace("https://www.dropbox.com", "https://dl.dropboxusercontent.com")
     u = u.replace("?dl=0", "")
     return u
+
+# ============================================================
+# REGISTRA ACESSO INICIAL NO APPS SCRIPT
+# ============================================================
+def registrar_acesso_inicial(numero, nome):
+    if not WEBAPP_URL:
+        print("⚠️ WEBAPP_URL não configurado.")
+        return
+
+    try:
+        payload = {
+            "tipo": "ACESSO_INICIAL",
+            "fone": numero,
+            "nome_whatsapp": nome
+        }
+
+        r = requests.post(WEBAPP_URL, json=payload, timeout=10)
+        print("📝 ACESSO REGISTRADO:", r.status_code)
+
+    except Exception as e:
+        print("❌ ERRO REGISTRAR ACESSO:", e)
 
 # ============================================================
 # ENVIO TEMPLATE
@@ -113,14 +134,11 @@ def webhook():
         imagem = normalizar_dropbox(data.get("imagem_url"))
 
         if numero and imagem:
-            enviar_template_oficina(
-                numero=numero,
-                imagem_url=imagem
-            )
-            print("🚀 DISPARO MENSAL EXECUTADO")
+            enviar_template_oficina(numero=numero, imagem_url=imagem)
+            print("🚀 DISPARO EXECUTADO")
             return "OK", 200
         else:
-            print("❌ Dados incompletos no disparo mensal:", data)
+            print("❌ Dados incompletos no disparo:", data)
             return "ERRO", 400
 
     # ===== EVENTOS META =====
@@ -138,16 +156,12 @@ def webhook():
 
             msg = messages[0]
 
-            # 🔒 IGNORA eventos que não são mensagens do usuário
             if "from" not in msg:
                 continue
 
             message_id = msg.get("id")
 
-            # 🔒 BLOQUEIO DE DUPLICIDADE PELO MESSAGE ID
-            message_id = msg.get("id")
-
-            # 🔒 BLOQUEIO DE DUPLICIDADE
+            # 🔒 BLOQUEIO DUPLICIDADE
             if message_id in MENSAGENS_PROCESSADAS:
                 print("⚠️ Mensagem duplicada ignorada:", message_id)
                 continue
@@ -156,7 +170,6 @@ def webhook():
 
             numero = contacts[0].get("wa_id")
 
-            # 🔒 IGNORA se não for realmente o número do usuário
             if msg.get("from") != numero:
                 continue
 
@@ -164,11 +177,11 @@ def webhook():
 
             texto = ""
 
-            # ===== TEXTO DIGITADO =====
+            # TEXTO NORMAL
             if msg.get("type") == "text":
                 texto = msg.get("text", {}).get("body", "").strip()
 
-            # ===== INTERACTIVE (BOTÕES / LISTA) =====
+            # INTERACTIVE
             elif msg.get("type") == "interactive":
                 interactive = msg.get("interactive", {})
                 tipo = interactive.get("type")
@@ -181,16 +194,19 @@ def webhook():
                     texto = interactive["list_reply"].get("id") \
                             or interactive["list_reply"].get("title")
 
-            # ===== BOTÃO TEMPLATE MARKETING =====
+            # BOTÃO TEMPLATE
             elif msg.get("type") == "button":
                 texto = msg.get("button", {}).get("text")
 
-                # 🔥 BOTÃO DO TEMPLATE → REINICIA SESSÃO
-                if texto.lower() in ["olá", "ola"]:
+                if texto and texto.lower() in ["olá", "ola"]:
                     from responder_oficina import reset_sessao
                     reset_sessao(numero)
 
+            # 🔥 REGISTRA ACESSO INICIAL
             if texto and len(texto.strip()) > 0:
+
+                registrar_acesso_inicial(numero, nome)
+
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)
 
