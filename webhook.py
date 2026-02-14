@@ -10,6 +10,7 @@ app = Flask(__name__)
 
 # 🔒 CONTROLE DE DUPLICIDADE (MEMÓRIA TEMPORÁRIA)
 MENSAGENS_PROCESSADAS = set()
+ACESSOS_REGISTRADOS = set()
 
 # ============================================================
 # VARIÁVEIS DE AMBIENTE
@@ -209,10 +210,10 @@ def webhook():
                     from responder_oficina import reset_sessao
                     reset_sessao(numero)
 
-            # 🔥 REGISTRA ACESSO INICIAL
-            if texto and len(texto.strip()) > 0:
-
+            # 🔥 REGISTRA APENAS O PRIMEIRO ACESSO DA SESSÃO
+            if numero not in ACESSOS_REGISTRADOS:
                 registrar_acesso_inicial(numero, nome)
+                ACESSOS_REGISTRADOS.add(numero)
 
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)
