@@ -18,7 +18,7 @@ ACESSOS_REGISTRADOS = set()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
-WEBAPP_URL = os.getenv("WEBAPP_URL")  # URL do Apps Script (doPost)
+WEBAPP_URL = os.getenv("WEBAPP_URL")
 OFICINA_SHEETS_SECRET = os.getenv("OFICINA_SHEETS_SECRET")
 
 # ============================================================
@@ -61,7 +61,7 @@ def normalizar_dropbox(url):
     return u
 
 # ============================================================
-# REGISTRA ACESSO INICIAL NO APPS SCRIPT
+# REGISTRA ACESSO INICIAL
 # ============================================================
 def registrar_acesso_inicial(numero, nome):
     if not WEBAPP_URL or not OFICINA_SHEETS_SECRET:
@@ -82,7 +82,7 @@ def registrar_acesso_inicial(numero, nome):
         }
 
         r = requests.post(WEBAPP_URL, json=payload, timeout=10)
-        print("📝 ACESSO REGISTRADO:", r.status_code, r.text)
+        print("📝 ACESSO REGISTRADO:", r.status_code)
 
     except Exception as e:
         print("❌ ERRO REGISTRAR ACESSO:", e)
@@ -127,6 +127,7 @@ def enviar_template_oficina(numero, imagem_url):
 # ============================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
+
     try:
         data = request.get_json(force=True)
     except:
@@ -142,11 +143,10 @@ def webhook():
         imagem = normalizar_dropbox(data.get("imagem_url"))
 
         if numero and imagem:
-            enviar_template_oficina(numero=numero, imagem_url=imagem)
+            enviar_template_oficina(numero, imagem)
             print("🚀 DISPARO EXECUTADO")
             return "OK", 200
         else:
-            print("❌ Dados incompletos no disparo:", data)
             return "ERRO", 400
 
     # ===== EVENTOS META =====
@@ -169,9 +169,7 @@ def webhook():
 
             message_id = msg.get("id")
 
-            # 🔒 BLOQUEIO DUPLICIDADE
             if message_id in MENSAGENS_PROCESSADAS:
-                print("⚠️ Mensagem duplicada ignorada:", message_id)
                 continue
 
             MENSAGENS_PROCESSADAS.add(message_id)
@@ -195,12 +193,10 @@ def webhook():
                 tipo = interactive.get("type")
 
                 if tipo == "button_reply":
-                    texto = interactive["button_reply"].get("id") \
-                            or interactive["button_reply"].get("title")
+                    texto = interactive["button_reply"].get("id") or interactive["button_reply"].get("title")
 
                 elif tipo == "list_reply":
-                    texto = interactive["list_reply"].get("id") \
-                            or interactive["list_reply"].get("title")
+                    texto = interactive["list_reply"].get("id") or interactive["list_reply"].get("title")
 
             # BOTÃO TEMPLATE
             elif msg.get("type") == "button":
@@ -210,10 +206,15 @@ def webhook():
                     from responder_oficina import reset_sessao
                     reset_sessao(numero)
 
-            # 🔥 REGISTRA APENAS O PRIMEIRO ACESSO DA SESSÃO
-            if numero not in ACESSOS_REGISTRADOS:
-                registrar_acesso_inicial(numero, nome)
-                ACESSOS_REGISTRADOS.add(numero)
+            # ============================================================
+            # PROCESSA SOMENTE SE HOUVER TEXTO VÁLIDO
+            # ============================================================
+            if texto and len(texto.strip()) > 0:
+
+                # 🔥 REGISTRA APENAS O PRIMEIRO ACESSO DA SESSÃO
+                if numero not in ACESSOS_REGISTRADOS:
+                    registrar_acesso_inicial(numero, nome)
+                    ACESSOS_REGISTRADOS.add(numero)
 
                 print(f"👉 RECEBIDO: {texto}")
                 print("📞 ENVIANDO PARA RESPONDER:", numero)
@@ -225,6 +226,7 @@ def webhook():
                 )
 
     return "OK", 200
+
 
 # ============================================================
 # RUN
