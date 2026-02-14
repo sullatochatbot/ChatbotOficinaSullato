@@ -18,6 +18,7 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
 WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL")  # URL do Apps Script (doPost)
+OFICINA_SHEETS_SECRET = os.getenv("OFICINA_SHEETS_SECRET")
 
 # ============================================================
 # HOME
@@ -62,19 +63,25 @@ def normalizar_dropbox(url):
 # REGISTRA ACESSO INICIAL NO APPS SCRIPT
 # ============================================================
 def registrar_acesso_inicial(numero, nome):
-    if not WEBAPP_URL:
-        print("⚠️ WEBAPP_URL não configurado.")
+    if not WEBAPP_URL or not OFICINA_SHEETS_SECRET:
+        print("⚠️ WEBAPP_URL ou OFICINA_SHEETS_SECRET não configurado.")
         return
 
     try:
         payload = {
-            "tipo": "ACESSO_INICIAL",
-            "fone": numero,
-            "nome_whatsapp": nome
+            "route": "chatbot",
+            "secret": OFICINA_SHEETS_SECRET,
+            "dados": {
+                "fone": numero,
+                "nome_whatsapp": nome,
+                "interesse_inicial": "acesso_inicial",
+                "tipo_registro": "Acesso",
+                "origem": "whatsapp"
+            }
         }
 
         r = requests.post(WEBAPP_URL, json=payload, timeout=10)
-        print("📝 ACESSO REGISTRADO:", r.status_code)
+        print("📝 ACESSO REGISTRADO:", r.status_code, r.text)
 
     except Exception as e:
         print("❌ ERRO REGISTRAR ACESSO:", e)
