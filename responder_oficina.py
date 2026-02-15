@@ -383,55 +383,73 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto in ["1", "btn_servicos"]:
             d["interesse_inicial"] = "servicos"
-            sessao["etapa"] = "ja_cadastrado"
-            enviar_botoes(
-                numero,
-                "Você já fez atendimento conosco antes?",
-                [
-                    {"id": "cad_sim", "title": "Sim"},
-                    {"id": "cad_nao", "title": "Não"}
-                ]
-            )
+
+            # sessao["etapa"] = "ja_cadastrado"
+            # enviar_botoes(
+            #     numero,
+            #     "Você já fez atendimento conosco antes?",
+            #     [
+            #         {"id": "cad_sim", "title": "Sim"},
+            #         {"id": "cad_nao", "title": "Não"}
+            #     ]
+            # )
+
+
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
             return
 
         if texto in ["2", "btn_pecas"]:
             d["interesse_inicial"] = "pecas"
-            sessao["etapa"] = "ja_cadastrado"
-            enviar_botoes(
-                numero,
-                "Você já fez atendimento conosco antes?",
-                [
-                    {"id": "cad_sim", "title": "Sim"},
-                    {"id": "cad_nao", "title": "Não"}
-                ]
-            )
+
+            # sessao["etapa"] = "ja_cadastrado"
+            # enviar_botoes(
+            #     numero,
+            #     "Você já fez atendimento conosco antes?",
+            #     [
+            #         {"id": "cad_sim", "title": "Sim"},
+            #         {"id": "cad_nao", "title": "Não"}
+            #     ]
+            # )
+
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
             return
 
         if texto in ["3", "btn_pos_venda"]:
             d["interesse_inicial"] = "pos_venda"
-            sessao["etapa"] = "ja_cadastrado"
-            enviar_botoes(
-                numero,
-                "Você já fez atendimento conosco antes?",
-                [
-                    {"id": "cad_sim", "title": "Sim"},
-                    {"id": "cad_nao", "title": "Não"}
-                ]
-            )
+
+            # sessao["etapa"] = "ja_cadastrado"
+            # enviar_botoes(
+            #     numero,
+            #     "Você já fez atendimento conosco antes?",
+            #     [
+            #         {"id": "cad_sim", "title": "Sim"},
+            #         {"id": "cad_nao", "title": "Não"}
+            #     ]
+            # )
+
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
             return
 
         if texto in ["4", "btn_retorno"]:
             d["interesse_inicial"] = "retorno_oficina"
-            sessao["etapa"] = "ja_cadastrado"
-            enviar_botoes(
-                numero,
-                "Você já fez atendimento conosco antes?",
-                [
-                    {"id": "cad_sim", "title": "Sim"},
-                    {"id": "cad_nao", "title": "Não"}
-                ]
-            )
+
+            # sessao["etapa"] = "ja_cadastrado"
+            # enviar_botoes(
+            #     numero,
+            #     "Você já fez atendimento conosco antes?",
+            #     [
+            #         {"id": "cad_sim", "title": "Sim"},
+            #         {"id": "cad_nao", "title": "Não"}
+            #     ]
+            # )
+
+            sessao["etapa"] = "pergunta_nome"
+            enviar_texto(numero, "Digite seu nome completo:")
             return
+        
         if texto in ["5", "btn_endereco"]:
             d["interesse_inicial"] = "endereco"
 
@@ -471,21 +489,21 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # ETAPA: JA_CADASTRADO
     # ============================================================
 
-    if etapa == "ja_cadastrado":
-
-        if texto in ["cad_sim", "btn_cad_sim", "sim"]:
-            sessao["veio_de"] = "cliente_antigo"
-            sessao["etapa"] = "pergunta_cpf"
-            enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00):")
-            return
-
-        if texto in ["cad_nao", "btn_cad_nao", "não", "nao"]:
-            sessao["etapa"] = "pergunta_nome"
-            enviar_texto(numero, "Digite seu nome completo:")
-            return
-
-        enviar_texto(numero, "Escolha uma opção válida.")
-        return
+    # if etapa == "ja_cadastrado":
+    #
+    #     if texto in ["cad_sim", "btn_cad_sim", "sim"]:
+    #         sessao["veio_de"] = "cliente_antigo"
+    #         sessao["etapa"] = "pergunta_cpf"
+    #         enviar_texto(numero, "Digite seu *CPF* (ex: 123.456.789-00):")
+    #         return
+    #
+    #     if texto in ["cad_nao", "btn_cad_nao", "não", "nao"]:
+    #         sessao["etapa"] = "pergunta_nome"
+    #         enviar_texto(numero, "Digite seu nome completo:")
+    #         return
+    #
+    #     enviar_texto(numero, "Escolha uma opção válida.")
+    #     return
 
     # ============================================================
     # PERGUNTA NOME
@@ -493,8 +511,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "pergunta_nome":
         d["nome"] = texto
-        sessao["etapa"] = "pergunta_cpf"
-        enviar_texto(numero, "Digite *seu CPF* (ex: 123.456.789-00):")
+
+        # sessao["etapa"] = "pergunta_cpf"
+        # enviar_texto(numero, "Digite *seu CPF* (ex: 123.456.789-00):")
+
+        sessao["etapa"] = "pergunta_marca_modelo"
+        enviar_texto(numero, "Digite a *marca/modelo* do veículo:")
         return
 
     # ============================================================
@@ -576,8 +598,11 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "pergunta_marca_modelo":
         d["marca_modelo"] = texto
-        sessao["etapa"] = "pergunta_ano_modelo"
-        enviar_texto(numero, "Digite o *ano fab/mod*:")
+
+        # sessao["etapa"] = "pergunta_ano_modelo"
+        # enviar_texto(numero, "Digite o *ano fab/mod*:")
+
+        sessao["etapa"] = "descricao_especifica"
         return
 
     if etapa == "pergunta_ano_modelo":
