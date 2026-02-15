@@ -236,23 +236,36 @@ def salvar_via_webapp(sessao):
 # ============================================================
 
 def construir_resumo(d):
+
+    # return (
+    #     "✅ *Resumo do seu atendimento:*\n\n"
+    #     f"*Nome:* {d.get('nome','')}\n"
+    #     f"*CPF:* {d.get('cpf','')}\n"
+    #     f"*Nascimento:* {d.get('nascimento','')}\n"
+    #     f"*Telefone:* {d.get('fone','')}\n\n"
+    #     "🚗 *Veículo*\n"
+    #     f"Tipo: {d.get('tipo_veiculo','')}\n"
+    #     f"Marca/Modelo: {d.get('marca_modelo','')}\n"
+    #     f"Ano Fab/Mod: {d.get('ano_modelo','')}\n"
+    #     f"KM: {d.get('km','')}\n"
+    #     f"Combustível: {d.get('combustivel','')}\n"
+    #     f"Placa: {d.get('placa','')}\n\n"
+    #     "📍 *Endereço*\n"
+    #     f"CEP: {d.get('cep','')}\n"
+    #     f"Número: {d.get('numero','')}\n"
+    #     f"Complemento: {d.get('complemento','')}\n\n"
+    #     "📝 *Atendimento*\n"
+    #     f"Tipo: {d.get('tipo_registro','')}\n"
+    #     f"Descrição: {d.get('descricao','')}\n"
+    #     f"Origem: {d.get('origem','')}\n"
+    #     f"Feedback: {d.get('feedback','')}\n"
+    # )
+
     return (
         "✅ *Resumo do seu atendimento:*\n\n"
         f"*Nome:* {d.get('nome','')}\n"
-        f"*CPF:* {d.get('cpf','')}\n"
-        f"*Nascimento:* {d.get('nascimento','')}\n"
-        f"*Telefone:* {d.get('fone','')}\n\n"
-        "🚗 *Veículo*\n"
-        f"Tipo: {d.get('tipo_veiculo','')}\n"
-        f"Marca/Modelo: {d.get('marca_modelo','')}\n"
-        f"Ano Fab/Mod: {d.get('ano_modelo','')}\n"
-        f"KM: {d.get('km','')}\n"
-        f"Combustível: {d.get('combustivel','')}\n"
-        f"Placa: {d.get('placa','')}\n\n"
-        "📍 *Endereço*\n"
-        f"CEP: {d.get('cep','')}\n"
-        f"Número: {d.get('numero','')}\n"
-        f"Complemento: {d.get('complemento','')}\n\n"
+        f"*Telefone:* {d.get('fone','')}\n"
+        f"*Marca/Modelo:* {d.get('marca_modelo','')}\n\n"
         "📝 *Atendimento*\n"
         f"Tipo: {d.get('tipo_registro','')}\n"
         f"Descrição: {d.get('descricao','')}\n"
@@ -603,7 +616,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         # enviar_texto(numero, "Digite o *ano fab/mod*:")
 
         sessao["etapa"] = "descricao_especifica"
-        return
+        # Força execução imediata da próxima etapa
+        return responder_oficina(numero, "", nome_whatsapp)
 
     if etapa == "pergunta_ano_modelo":
         d["ano_modelo"] = texto
