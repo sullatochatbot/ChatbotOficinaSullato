@@ -2,7 +2,7 @@
 import os
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -176,6 +176,25 @@ def reset_sessao(numero):
         del SESSOES[numero]
 
 # ============================================================
+# HORÁRIO DE ATENDIMENTO — OFICINA
+# ============================================================
+from datetime import datetime, timedelta  # 👈 ajuste no import
+
+def _em_horario_oficina():
+    agora = datetime.utcnow() - timedelta(hours=3)  # 👈 força horário Brasil
+
+    dia = agora.weekday()
+    hora = agora.hour
+
+    if 0 <= dia <= 4:
+        return 9 <= hora < 18
+
+    if dia == 5:
+        return 9 <= hora < 13
+
+    return False
+
+# ============================================================
 # INICIAR SESSÃO
 # ============================================================
 
@@ -272,6 +291,33 @@ def construir_resumo(d):
         f"Origem: {d.get('origem','')}\n"
         f"Feedback: {d.get('feedback','')}\n"
     )
+
+# ============================================================
+# MENSAGENS DE FECHAMENTO — OFICINA
+# ============================================================
+
+FECHAMENTO_DENTRO = (
+    "✅ Obrigado! Seu atendimento foi registrado.\n\n"
+    "Uma atendente da Sullato Oficina entrará em contato em breve.\n\n"
+    "📲 Contato:\n"
+    "(11) 99408-1931\n\n"
+    "⏰ Horário de atendimento:\n"
+    "Segunda a sexta das 9h às 18h\n"
+    "Sábado das 9h às 13h\n\n"
+    "Se preferir, fale agora com nossa equipe:\n"
+    "https://wa.me/5511994081931"
+)
+
+FECHAMENTO_FORA = (
+    "✅ Obrigado! Seu atendimento foi registrado.\n\n"
+    "📩 Sua solicitação foi recebida com sucesso.\n\n"
+    "⏰ No momento estamos fora do horário de atendimento.\n"
+    "Atendemos de segunda a sexta das 9h às 18h\n"
+    "e aos sábados das 9h às 13h.\n\n"
+    "Assim que retornarmos, nossa equipe entrará em contato.\n\n"
+    "📲 Se desejar, você pode enviar mensagem:\n"
+    "https://wa.me/5511994081931"
+)
 
 # ============================================================
 def enviar_template_oficina_disparo(numero):
@@ -948,12 +994,16 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         if texto_normalizado in ["confirmar"]:
             salvar_via_webapp(sessao)
-            reset_sessao(numero)
-            enviar_texto(
-                numero,
-                "👍 *Perfeito!* Seus dados foram enviados.\n"
-                "Um técnico da Sullato entrará em contato em breve!"
-            )
+
+            if _em_horario_oficina():
+                mensagem_final = FECHAMENTO_DENTRO
+            else:
+                mensagem_final = FECHAMENTO_FORA
+
+            enviar_texto(numero, mensagem_final)
+
+            reset_sessao(numero)  # 👈 depois do envio
+
             return
 
         if texto_normalizado in ["editar"]:
