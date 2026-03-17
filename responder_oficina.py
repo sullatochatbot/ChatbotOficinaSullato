@@ -298,7 +298,7 @@ def construir_resumo(d):
 
 FECHAMENTO_DENTRO = (
     "✅ Obrigado! Seu atendimento foi registrado.\n\n"
-    "Uma atendente da Sullato Oficina entrará em contato em breve.\n\n"
+    "Em breve, nossa equipe vai falar com você.\n\n"
     "📲 Contato:\n"
     "(11) 99408-1931\n\n"
     "⏰ Horário de atendimento:\n"
