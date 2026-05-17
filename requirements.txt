@@ -16,3 +16,4 @@ google-auth-oauthlib
 google-auth-httplib2
 openai>=1.0.0
 anthropic
+groq
