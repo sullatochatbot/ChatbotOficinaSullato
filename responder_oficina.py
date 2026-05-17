@@ -440,6 +440,29 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "menu_inicial":
 
+        if texto not in ["1", "btn_servicos", "2", "btn_pecas", "3", "btn_pos_venda", "4", "btn_retorno", "5", "btn_endereco"]:
+            resposta_ia = None
+            try:
+                from responder_ia import responder_com_ia
+                resposta_ia = responder_com_ia(texto_digitado, nome_whatsapp)
+            except Exception:
+                pass
+            if resposta_ia:
+                enviar_texto(numero, resposta_ia)
+                enviar_texto(
+                    numero,
+                    "Para continuar, escolha uma opção:\n"
+                    "1 – Serviços\n2 – Peças\n3 – Pós-venda / Garantia\n4 – Retorno Oficina\n5 – Endereço e Contato"
+                )
+                return
+            else:
+                enviar_texto(
+                    numero,
+                    "Olá! Para te atender melhor, escolha uma opção:\n"
+                    "1 – Serviços\n2 – Peças\n3 – Pós-venda / Garantia\n4 – Retorno Oficina\n5 – Endereço e Contato"
+                )
+                return
+
         if texto in ["1", "btn_servicos"]:
             d["interesse_inicial"] = "servicos"
 
