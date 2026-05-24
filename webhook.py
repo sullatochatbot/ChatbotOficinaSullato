@@ -209,26 +209,47 @@ def webhook():
             elif msg.get("type") == "audio":
                 try:
                     from transcrever_audio import transcrever_audio
+
                     media_id = (msg.get("audio") or {}).get("id", "")
+
                     if media_id:
                         texto = transcrever_audio(media_id, WA_ACCESS_TOKEN)
                         print(f"🎙️ Áudio transcrito: {texto!r}")
+
                 except Exception as e:
                     print("❌ Erro ao transcrever áudio:", e)
 
             # ============================================================
-            # PROCESSA SOMENTE SE HOUVER TEXTO VÁLIDO
+            # GARANTE TEXTO PADRÃO PARA MÍDIAS
             # ============================================================
-            if texto and len(texto.strip()) > 0:
 
-                print(f"👉 RECEBIDO: {texto}")
-                print("📞 ENVIANDO PARA RESPONDER:", numero)
+            tipo_msg = msg.get("type", "desconhecido")
 
-                responder_oficina(
-                    numero=numero,
-                    texto_digitado=texto,
-                    nome_whatsapp=nome
-                )
+            if not texto or len(str(texto).strip()) == 0:
+
+                if tipo_msg == "audio":
+                    texto = "__audio__"
+
+                elif tipo_msg == "image":
+                    texto = "__imagem__"
+
+                elif tipo_msg == "video":
+                    texto = "__video__"
+
+                elif tipo_msg == "document":
+                    texto = "__documento__"
+
+                else:
+                    texto = "__mensagem__"
+
+            print(f"👉 RECEBIDO ({tipo_msg}): {texto}")
+            print("📞 ENVIANDO PARA RESPONDER:", numero)
+
+            responder_oficina(
+                numero=numero,
+                texto_digitado=texto,
+                nome_whatsapp=nome
+            )
 
     return "OK", 200
 

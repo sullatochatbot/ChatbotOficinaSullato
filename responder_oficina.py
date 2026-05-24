@@ -356,8 +356,53 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
 
-    agora = time.time()
+    # ============================================================
+    # MÍDIAS / ENTRADAS SEM TEXTO
+    # ============================================================
 
+    if texto in ["__audio__", "__imagem__", "__video__", "__documento__", "__mensagem__"]:
+
+        if numero not in SESSOES:
+
+            iniciar_sessao(numero, nome_whatsapp)
+
+            try:
+                payload = {
+                    "secret": SECRET_KEY,
+                    "route": "chatbot",
+                    "dados": {
+                        "fone": numero,
+                        "nome_whatsapp": nome_whatsapp,
+                        "interesse_inicial": texto,
+                        "tipo_registro": "Acesso Midia",
+                        "origem": "whatsapp"
+                    }
+                }
+
+                requests.post(
+                    GOOGLE_SHEETS_URL,
+                    json=payload,
+                    timeout=10
+                )
+
+            except Exception as e:
+                print("Erro registrar acesso mídia:", e)
+
+        enviar_texto(
+            numero,
+            "Recebemos sua mensagem 👍\n\n"
+            "Vamos continuar seu atendimento.\n\n"
+            "Escolha uma opção:\n"
+            "1 – Serviços\n"
+            "2 – Peças\n"
+            "3 – Pós-venda / Garantia\n"
+            "4 – Retorno Oficina\n"
+            "5 – Endereço e Contato"
+        )
+
+        return
+
+    agora = time.time()
     # ============================================================
     # PRIMEIRO CONTATO OU NOVA SESSÃO
     # ============================================================
