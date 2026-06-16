@@ -417,10 +417,23 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         return
 
     # ============================================================
+    # IMAGEM — resposta específica
+    # ============================================================
+
+    if texto == "__imagem__":
+        enviar_texto(
+            numero,
+            "Recebemos sua imagem! 📸\n\n"
+            "Infelizmente não consigo visualizar fotos por aqui.\n\n"
+            "Pode descrever em texto o serviço ou problema que precisa? Será um prazer ajudar! 😊"
+        )
+        return
+
+    # ============================================================
     # MÍDIAS / ENTRADAS SEM TEXTO
     # ============================================================
 
-    if texto in ["__audio__", "__imagem__", "__video__", "__documento__", "__mensagem__"]:
+    if texto in ["__audio__", "__video__", "__documento__", "__mensagem__"]:
 
         if numero not in SESSOES:
 
