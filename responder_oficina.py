@@ -366,12 +366,55 @@ def enviar_template_oficina_disparo(numero):
     return response.text
 
 # ============================================================
+# HANDOFF PARA HUMANO
+# ============================================================
+
+_HANDOFF_NUMERO = "5511940497678"
+_GATILHOS_HANDOFF = ["atendente", "falar com humano", "falar com pessoa", "quero falar com alguem", "quero falar com alguém"]
+
+def _enviar_alerta_handoff(numero_cliente, nome_cliente):
+    try:
+        msg = (
+            f"🔔 *Solicitação de Atendimento Humano*\n\n"
+            f"Cliente: {nome_cliente}\n"
+            f"WhatsApp: +{numero_cliente}\n"
+            f"Via: ChatBot Oficina Sullato\n\n"
+            "Por favor, entre em contato!"
+        )
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": _HANDOFF_NUMERO,
+            "text": {"body": msg}
+        }
+        headers = {
+            "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers, timeout=10)
+        print("🔔 Alerta handoff Oficina enviado")
+    except Exception as e:
+        print("❌ Erro alerta handoff:", e)
+
+# ============================================================
 # FLUXO PRINCIPAL
 # ============================================================
 
 def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
+
+    # HANDOFF — detectar antes de qualquer outra lógica
+    if any(g in texto for g in _GATILHOS_HANDOFF):
+        _enviar_alerta_handoff(numero, nome_whatsapp)
+        enviar_texto(
+            numero,
+            "Entendido! 👍 Já avisamos nossa equipe.\n\n"
+            "Em breve um atendente vai entrar em contato com você.\n\n"
+            "Se preferir, fale diretamente com o Érico:\n"
+            "👉 https://wa.me/5511940497678"
+        )
+        reset_sessao(numero)
+        return
 
     # ============================================================
     # MÍDIAS / ENTRADAS SEM TEXTO
