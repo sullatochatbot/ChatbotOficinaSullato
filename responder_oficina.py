@@ -198,7 +198,7 @@ def _em_horario_oficina():
 # INICIAR SESSÃO
 # ============================================================
 
-def iniciar_sessao(numero, nome_whatsapp):
+def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
     SESSOES[numero] = {
         "etapa": "menu_inicial",
         "inicio": time.time(),
@@ -210,17 +210,18 @@ def iniciar_sessao(numero, nome_whatsapp):
         },
     }
 
-    enviar_texto(
-        numero,
-        f"Olá {nome_whatsapp}! 👋\n\n"
-        "Vamos iniciar seu atendimento.\n\n"
-        "*Escolha uma opção:*\n"
-        "1 – Serviços\n"
-        "2 – Peças\n"
-        "3 – Pós-venda / Garantia\n"
-        "4 – Retorno Oficina\n"
-        "5 – Endereço e Contato",
-    )
+    if enviar_menu:
+        enviar_texto(
+            numero,
+            f"Olá {nome_whatsapp}! 👋\n\n"
+            "Vamos iniciar seu atendimento.\n\n"
+            "*Escolha uma opção:*\n"
+            "1 – Serviços\n"
+            "2 – Peças\n"
+            "3 – Pós-venda / Garantia\n"
+            "4 – Retorno Oficina\n"
+            "5 – Endereço e Contato",
+        )
 
 # ============================================================
 # SALVAR VIA GOOGLE SHEETS
@@ -409,7 +410,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if numero not in SESSOES:
 
-        iniciar_sessao(numero, nome_whatsapp)
+        tem_conteudo = bool(texto)
+        iniciar_sessao(numero, nome_whatsapp, enviar_menu=not tem_conteudo)
 
         # 🔥 REGISTRA ACESSO INICIAL
         try:
@@ -430,7 +432,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         except Exception as e:
             print("Erro registrar acesso:", e)
 
-        return
+        if not tem_conteudo:
+            return
 
     sessao = SESSOES[numero]
 
