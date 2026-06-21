@@ -230,7 +230,7 @@ def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
         enviar_texto(
             numero,
             f"Olá {nome_whatsapp}! 👋\n\n"
-            "Vamos iniciar seu atendimento.\n\n"
+            "💬 Você também pode escrever sua dúvida ou enviar um áudio explicando o que precisa.\n\n"
             "*Escolha uma opção:*\n"
             "1 – Serviços\n"
             "2 – Peças\n"
@@ -464,7 +464,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         enviar_texto(
             numero,
             "Recebemos sua mensagem 👍\n\n"
-            "Vamos continuar seu atendimento.\n\n"
+            "Você também pode enviar um áudio ou descrever sua necessidade em texto.\n\n"
             "Escolha uma opção:\n"
             "1 – Serviços\n"
             "2 – Peças\n"
@@ -720,7 +720,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         # enviar_texto(numero, "Digite *seu CPF* (ex: 123.456.789-00):")
 
         sessao["etapa"] = "pergunta_marca_modelo"
-        enviar_texto(numero, "Digite a *marca/modelo* do veículo:")
+        enviar_texto(
+            numero,
+            "Digite a *marca/modelo, ano fab/mod e placa* do veículo.\n\n"
+            "Exemplo:\n"
+            "Fiat Strada 2023/2024 - ABC1D23"
+        )
         return
 
     # ============================================================
