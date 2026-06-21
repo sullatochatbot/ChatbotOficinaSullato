@@ -433,7 +433,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # MÍDIAS / ENTRADAS SEM TEXTO
     # ============================================================
 
-    if texto in ["__audio__", "__video__", "__documento__", "__mensagem__"]:
+    if texto in ["__video__", "__documento__", "__mensagem__"]:
 
         if numero not in SESSOES:
 
