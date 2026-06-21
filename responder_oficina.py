@@ -404,6 +404,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
 
+    # Comportamento igual ao chatbot Sullato
+    if texto in ["oi", "ola", "olá", "menu", "inicio", "início"]:
+        reset_sessao(numero)
+        iniciar_sessao(numero, nome_whatsapp, enviar_menu=True)
+        return
+
     # HANDOFF — detectar antes de qualquer outra lógica
     if any(g in texto for g in _GATILHOS_HANDOFF):
         _enviar_alerta_handoff(numero, nome_whatsapp)
@@ -484,7 +490,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     if numero not in SESSOES:
 
         tem_conteudo = bool(texto)
-        iniciar_sessao(numero, nome_whatsapp, enviar_menu=not tem_conteudo)
+
+        # Sempre exibe a mensagem inicial igual ao chatbot Sullato
+        iniciar_sessao(numero, nome_whatsapp, enviar_menu=True)
 
         # 🔥 REGISTRA ACESSO INICIAL
         try:
