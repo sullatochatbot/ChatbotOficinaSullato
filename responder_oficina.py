@@ -230,13 +230,14 @@ def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
         enviar_texto(
             numero,
             f"Olá {nome_whatsapp}! 👋\n\n"
+            "Seja bem-vindo à Sullato Oficina e Peças.\n\n"
             "💬 Você também pode escrever sua dúvida ou enviar um áudio explicando o que precisa.\n\n"
-            "*Escolha uma opção:*\n"
+            "Se preferir, utilize uma das opções abaixo:\n\n"
             "1 – Serviços\n"
             "2 – Peças\n"
             "3 – Pós-venda / Garantia\n"
             "4 – Retorno Oficina\n"
-            "5 – Endereço e Contato",
+            "5 – Endereço e Contato"
         )
 
 # ============================================================
