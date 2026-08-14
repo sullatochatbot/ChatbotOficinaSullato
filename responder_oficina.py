@@ -314,25 +314,65 @@ def construir_resumo(d):
 # MENSAGENS DE FECHAMENTO — OFICINA
 # ============================================================
 
-def obter_responsavel_atendimento():
+def construir_fechamento(dentro_horario=True):
 
-    import random
+    responsaveis = obter_responsavel_atendimento()
 
-    responsaveis = [
-        {
-            "nome": "Juliano",
-            "telefone": "(11) 99373-8592",
-            "link": "https://wa.me/5511993738592"
-        },
-        {
-            "nome": "Priscila",
-            "telefone": "(11) 99408-1931",
-            "link": "https://wa.me/5511994081931"
-        }
-    ]
+    contatos = "\n\n".join(
+        [
+            f"👤 *{r['nome']}*\n"
+            f"📲 {r['telefone']}\n"
+            f"👉 {r['link']}"
+            for r in responsaveis
+        ]
+    )
 
-    return random.choice(responsaveis)
+    if dentro_horario:
 
+        return (
+            "✅ *Atendimento registrado com sucesso!*\n\n"
+            "Obrigado por entrar em contato com a "
+            "*TS Sullato Auto Service*.\n\n"
+            "Nossa equipe recebeu sua solicitação e dará "
+            "continuidade ao seu atendimento.\n\n"
+
+            "👥 *Responsáveis pelo atendimento:*\n\n"
+            f"{contatos}\n\n"
+
+            "Nossa equipe entrará em contato com você. "
+            "Se preferir, você também pode falar diretamente "
+            "com um de nossos responsáveis pelos links acima.\n\n"
+
+            "⏰ *Horário de atendimento*\n"
+            "Segunda a sexta, das 9h às 18h\n"
+            "Sábado, das 9h às 13h\n\n"
+
+            "🔧 *TS Sullato Auto Service*\n"
+            "Oficina • Peças • Pós-venda"
+        )
+
+    return (
+        "✅ *Atendimento registrado com sucesso!*\n\n"
+        "Obrigado por entrar em contato com a "
+        "*TS Sullato Auto Service*.\n\n"
+        "No momento estamos fora do nosso horário de atendimento, "
+        "mas sua solicitação já foi recebida.\n\n"
+        "Assim que retornarmos, nossa equipe dará continuidade "
+        "ao seu atendimento.\n\n"
+
+        "👥 *Responsáveis pelo atendimento:*\n\n"
+        f"{contatos}\n\n"
+
+        "Se preferir, você já pode deixar uma mensagem "
+        "diretamente para um de nossos responsáveis pelos links acima.\n\n"
+
+        "⏰ *Horário de atendimento*\n"
+        "Segunda a sexta, das 9h às 18h\n"
+        "Sábado, das 9h às 13h\n\n"
+
+        "🔧 *TS Sullato Auto Service*\n"
+        "Oficina • Peças • Pós-venda"
+    )
 
 def construir_fechamento(dentro_horario=True):
 
