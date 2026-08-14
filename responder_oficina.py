@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import time
+import random
 import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -309,6 +310,25 @@ def construir_resumo(d):
         f"Origem: {d.get('origem','')}\n"
         f"Feedback: {d.get('feedback','')}\n"
     )
+
+def obter_responsavel_atendimento():
+
+    responsaveis = [
+        {
+            "nome": "Juliano",
+            "telefone": "(11) 99373-8592",
+            "link": "https://wa.me/5511993738592"
+        },
+        {
+            "nome": "Priscila",
+            "telefone": "(11) 99408-1931",
+            "link": "https://wa.me/5511994081931"
+        }
+    ]
+
+    random.shuffle(responsaveis)
+
+    return responsaveis
 
 # ============================================================
 # MENSAGENS DE FECHAMENTO — OFICINA
