@@ -230,7 +230,7 @@ def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
         enviar_texto(
             numero,
             f"Olá {nome_whatsapp}! 👋\n\n"
-            "Seja bem-vindo à Sullato Oficina e Peças.\n\n"
+            "Seja bem-vindo à *TS Sullato Auto Service*.\n\n"
             "💬 Você também pode escrever sua dúvida ou enviar um áudio explicando o que precisa.\n\n"
             "Se preferir, utilize uma das opções abaixo:\n\n"
             "1 – Serviços\n"
@@ -314,28 +314,89 @@ def construir_resumo(d):
 # MENSAGENS DE FECHAMENTO — OFICINA
 # ============================================================
 
-FECHAMENTO_DENTRO = (
-    "✅ Obrigado! Seu atendimento foi registrado.\n\n"
-    "Em breve, nossa equipe vai falar com você.\n\n"
-    "📲 Contato:\n"
-    "(11) 99408-1931\n\n"
-    "⏰ Horário de atendimento:\n"
-    "Segunda a sexta das 9h às 18h\n"
-    "Sábado das 9h às 13h\n\n"
-    "Se preferir, fale agora com nossa equipe:\n"
-    "https://wa.me/5511994081931"
-)
+def obter_responsavel_atendimento():
 
-FECHAMENTO_FORA = (
-    "✅ Obrigado! Seu atendimento foi registrado.\n\n"
-    "📩 Sua solicitação foi recebida com sucesso.\n\n"
-    "⏰ No momento estamos fora do horário de atendimento.\n"
-    "Atendemos de segunda a sexta das 9h às 18h\n"
-    "e aos sábados das 9h às 13h.\n\n"
-    "Assim que retornarmos, nossa equipe entrará em contato.\n\n"
-    "📲 Se desejar, você pode enviar mensagem:\n"
-    "https://wa.me/5511994081931"
-)
+    redis_client = get_redis()
+
+    chave = "oficina:ultimo_responsavel"
+
+    try:
+        ultimo = redis_client.get(chave)
+
+        if ultimo == "juliano":
+            responsavel = "priscila"
+        else:
+            responsavel = "juliano"
+
+        redis_client.set(chave, responsavel)
+
+    except Exception as e:
+        logger.warning(
+            f"⚠️ Falha no rodízio de responsáveis: {e}"
+        )
+        responsavel = "juliano"
+
+    if responsavel == "juliano":
+        return {
+            "nome": "Juliano",
+            "telefone": "(11) 99373-8592",
+            "link": "https://wa.me/5511993738592"
+        }
+
+    return {
+        "nome": "Priscila",
+        "telefone": "(11) 99408-1931",
+        "link": "https://wa.me/5511994081931"
+    }
+
+
+def construir_fechamento(dentro_horario=True):
+
+    responsavel = obter_responsavel_atendimento()
+
+    nome = responsavel["nome"]
+    telefone = responsavel["telefone"]
+    link = responsavel["link"]
+
+    if dentro_horario:
+
+        return (
+            "✅ *Atendimento registrado com sucesso!*\n\n"
+            "Obrigado por entrar em contato com a "
+            "*TS Sullato Auto Service*.\n\n"
+            "Nossa equipe recebeu sua solicitação e dará "
+            "continuidade ao seu atendimento.\n\n"
+            f"👤 *Responsável: {nome}*\n"
+            f"📲 {telefone}\n"
+            f"👉 {link}\n\n"
+            f"Se preferir, você já pode falar diretamente "
+            f"com {nome} pelo link acima.\n\n"
+            "⏰ *Horário de atendimento*\n"
+            "Segunda a sexta, das 9h às 18h\n"
+            "Sábado, das 9h às 13h\n\n"
+            "🔧 *TS Sullato Auto Service*\n"
+            "Oficina • Peças • Pós-venda"
+        )
+
+    return (
+        "✅ *Atendimento registrado com sucesso!*\n\n"
+        "Obrigado por entrar em contato com a "
+        "*TS Sullato Auto Service*.\n\n"
+        "No momento estamos fora do nosso horário de atendimento, "
+        "mas sua solicitação já foi recebida.\n\n"
+        "Assim que retornarmos, nossa equipe dará continuidade "
+        "ao seu atendimento.\n\n"
+        f"👤 *Responsável: {nome}*\n"
+        f"📲 {telefone}\n"
+        f"👉 {link}\n\n"
+        f"Se preferir, você já pode deixar uma mensagem "
+        f"diretamente para {nome}.\n\n"
+        "⏰ *Horário de atendimento*\n"
+        "Segunda a sexta, das 9h às 18h\n"
+        "Sábado, das 9h às 13h\n\n"
+        "🔧 *TS Sullato Auto Service*\n"
+        "Oficina • Peças • Pós-venda"
+    )
 
 # ============================================================
 def enviar_template_oficina_disparo(numero):
@@ -1154,10 +1215,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         if texto_normalizado in ["confirmar"]:
             salvar_via_webapp(sessao)
 
-            if _em_horario_oficina():
-                mensagem_final = FECHAMENTO_DENTRO
-            else:
-                mensagem_final = FECHAMENTO_FORA
+            mensagem_final = construir_fechamento(
+                dentro_horario=_em_horario_oficina()
+            )
 
             enviar_texto(numero, mensagem_final)
 
