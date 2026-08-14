@@ -374,54 +374,6 @@ def construir_fechamento(dentro_horario=True):
         "Oficina • Peças • Pós-venda"
     )
 
-def construir_fechamento(dentro_horario=True):
-
-    responsavel = obter_responsavel_atendimento()
-
-    nome = responsavel["nome"]
-    telefone = responsavel["telefone"]
-    link = responsavel["link"]
-
-    if dentro_horario:
-
-        return (
-            "✅ *Atendimento registrado com sucesso!*\n\n"
-            "Obrigado por entrar em contato com a "
-            "*TS Sullato Auto Service*.\n\n"
-            "Nossa equipe recebeu sua solicitação e dará "
-            "continuidade ao seu atendimento.\n\n"
-            f"👤 *Responsável: {nome}*\n"
-            f"📲 {telefone}\n"
-            f"👉 {link}\n\n"
-            f"Se preferir, você já pode falar diretamente "
-            f"com {nome} pelo link acima.\n\n"
-            "⏰ *Horário de atendimento*\n"
-            "Segunda a sexta, das 9h às 18h\n"
-            "Sábado, das 9h às 13h\n\n"
-            "🔧 *TS Sullato Auto Service*\n"
-            "Oficina • Peças • Pós-venda"
-        )
-
-    return (
-        "✅ *Atendimento registrado com sucesso!*\n\n"
-        "Obrigado por entrar em contato com a "
-        "*TS Sullato Auto Service*.\n\n"
-        "No momento estamos fora do nosso horário de atendimento, "
-        "mas sua solicitação já foi recebida.\n\n"
-        "Assim que retornarmos, nossa equipe dará continuidade "
-        "ao seu atendimento.\n\n"
-        f"👤 *Responsável: {nome}*\n"
-        f"📲 {telefone}\n"
-        f"👉 {link}\n\n"
-        f"Se preferir, você já pode deixar uma mensagem "
-        f"diretamente para {nome}.\n\n"
-        "⏰ *Horário de atendimento*\n"
-        "Segunda a sexta, das 9h às 18h\n"
-        "Sábado, das 9h às 13h\n\n"
-        "🔧 *TS Sullato Auto Service*\n"
-        "Oficina • Peças • Pós-venda"
-    )
-
 # ============================================================
 def enviar_template_oficina_disparo(numero):
     url = f"https://graph.facebook.com/v17.0/{os.getenv('WA_PHONE_NUMBER_ID')}/messages"
