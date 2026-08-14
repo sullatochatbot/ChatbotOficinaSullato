@@ -316,38 +316,22 @@ def construir_resumo(d):
 
 def obter_responsavel_atendimento():
 
-    redis_client = get_redis()
+    import random
 
-    chave = "oficina:ultimo_responsavel"
-
-    try:
-        ultimo = redis_client.get(chave)
-
-        if ultimo == "juliano":
-            responsavel = "priscila"
-        else:
-            responsavel = "juliano"
-
-        redis_client.set(chave, responsavel)
-
-    except Exception as e:
-        logger.warning(
-            f"⚠️ Falha no rodízio de responsáveis: {e}"
-        )
-        responsavel = "juliano"
-
-    if responsavel == "juliano":
-        return {
+    responsaveis = [
+        {
             "nome": "Juliano",
             "telefone": "(11) 99373-8592",
             "link": "https://wa.me/5511993738592"
+        },
+        {
+            "nome": "Priscila",
+            "telefone": "(11) 99408-1931",
+            "link": "https://wa.me/5511994081931"
         }
+    ]
 
-    return {
-        "nome": "Priscila",
-        "telefone": "(11) 99408-1931",
-        "link": "https://wa.me/5511994081931"
-    }
+    return random.choice(responsaveis)
 
 
 def construir_fechamento(dentro_horario=True):
