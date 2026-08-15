@@ -461,13 +461,51 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     texto = (texto_digitado or "").strip().lower()
 
-    # Comportamento igual ao chatbot Sullato
+    # ============================================================
+    # PRIMEIRO ACESSO / SAUDAÇÃO
+    # ============================================================
+
     if texto in ["oi", "ola", "olá", "menu", "inicio", "início"]:
+
         reset_sessao(numero)
         iniciar_sessao(numero, nome_whatsapp, enviar_menu=True)
-        return
 
+        sessao = SESSOES[numero]
+
+        # REGISTRA IMEDIATAMENTE O ACESSO NA PLANILHA
+        try:
+            payload = {
+                "secret": SECRET_KEY,
+                "route": "chatbot",
+                "dados": {
+                    "fone": numero,
+                    "nome_whatsapp": nome_whatsapp,
+                    "interesse_inicial": "acesso_inicial",
+                    "tipo_registro": "Acesso",
+                    "origem": "whatsapp"
+                }
+            }
+
+            requests.post(
+                GOOGLE_SHEETS_URL,
+                json=payload,
+                timeout=10
+            )
+
+            sessao["acesso_registrado"] = True
+
+            print(
+                f"✅ ACESSO INICIAL REGISTRADO: "
+                f"{numero} - {nome_whatsapp}"
+            )
+
+        except Exception as e:
+            print("❌ Erro registrar acesso inicial:", e)
+
+        return
+    
     # HANDOFF — detectar antes de qualquer outra lógica
+    
     if any(g in texto for g in _GATILHOS_HANDOFF):
         _enviar_alerta_handoff(numero, nome_whatsapp)
         enviar_texto(
