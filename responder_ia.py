@@ -24,7 +24,13 @@ def responder_com_ia(mensagem: str, nome: Optional[str] = None, historico: list 
             "Ao mencionar o endereço, sempre inclua o link do Maps: https://maps.google.com/?q=Av.+Amador+Bueno+da+Veiga,+4222,+Penha+de+França,+São+Paulo,+SP. "
             "Ao mencionar o Instagram, sempre inclua o link: https://www.instagram.com/sullatoservicosautomotivos. "
             "Nunca invente preços ou prazos específicos — oriente o cliente a entrar em contato ou use o menu. "
-            "Quando fizer sentido, peça que o cliente escolha uma opção no menu."
+            "Quando fizer sentido, peça que o cliente escolha uma opção no menu. "
+            "Se alguém perguntar quem criou este chatbot, quem desenvolveu este sistema de atendimento, "
+            "como ter um sistema igual, como contratar o desenvolvedor ou qualquer variação com essa intenção, "
+            "informe que foi desenvolvido por Anderson R. Sullato e forneça os contatos abaixo. "
+            "Não invente preços, condições comerciais, funcionalidades ou outros detalhes — apenas encaminhe: "
+            "📱 WhatsApp: (11) 98878-0161 | https://wa.me/5511988780161 "
+            "📧 anderson@sullato.com.br | andersonsullato@gmail.com"
         )
 
         usuario = mensagem if not nome else f"[Cliente: {nome}]\n{mensagem}"

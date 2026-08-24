@@ -586,8 +586,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
         tem_conteudo = bool(texto)
 
-        # Sempre exibe a mensagem inicial igual ao chatbot Sullato
-        iniciar_sessao(numero, nome_whatsapp, enviar_menu=True)
+        # Exibe menu só quando não há conteúdo; áudio/texto livre já traz intenção
+        iniciar_sessao(numero, nome_whatsapp, enviar_menu=not tem_conteudo)
 
         # 🔥 REGISTRA ACESSO INICIAL
         try:
