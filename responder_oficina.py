@@ -785,7 +785,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
                 "📍 *Sullato Oficina e Peças*\n"
                 "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
                 "☎️ (11) 20922304\n"
-                "👉 https://wa.me/5511994081931\n\n"
+                "👉 https://wa.me/5511994081931\n"
+                "📸 Instagram: https://www.instagram.com/tssullatoautoservice/\n\n"
                 "🔧 *Érico*: https://wa.me/5511940497678\n"
             )
 
