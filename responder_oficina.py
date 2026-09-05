@@ -605,16 +605,19 @@ def _eh_intencao_trabalhe_conosco(texto_norm: str) -> bool:
 def _texto_trabalhe_conosco() -> str:
     """Mensagem própria da TS Sullato Auto Service — autoral, não copiada
     do texto de Trabalhe Conosco do chatbot Sullato (referência só de
-    arquitetura/comportamento, não de conteúdo)."""
+    arquitetura/comportamento, não de conteúdo). Simplificada: entrega
+    contato direto do responsável (Érico) e e-mail de currículos, sem
+    coletar nome/área (não havia processamento algum dessa coleta) e sem
+    afirmar vaga aberta nem prometer entrevista/retorno."""
     return (
         "Que legal seu interesse em fazer parte da equipe da "
         "*TS Sullato Auto Service*! 🔧\n\n"
-        "Pode me contar um pouco:\n"
-        "• Seu nome completo\n"
-        "• Qual área te interessa (oficina, peças, atendimento, etc.)\n\n"
-        "Se preferir, já pode colar aqui um resumo da sua experiência ou currículo.\n\n"
-        "Assim que possível, alguém da nossa equipe vai dar uma olhada na sua "
-        "mensagem. Obrigado pelo interesse!"
+        "Você pode enviar seu currículo ou falar diretamente com o responsável:\n\n"
+        "👤 *Érico*\n"
+        "📱 WhatsApp: https://wa.me/5511940497678\n\n"
+        "📧 *Currículos:*\n"
+        "tssullatoautoservice@gmail.com\n\n"
+        "Se preferir, envie seu currículo por e-mail com a área de interesse. Boa sorte! 😊"
     )
 
 
@@ -650,7 +653,8 @@ _GATILHOS_HANDOFF_COMERCIAL = (
     "estou procurando", "procurando por", "procuro", "estou atras de",
     "preciso de", "precisando de", "estou precisando de",
     "voces trabalham com", "vcs trabalham com", "trabalham com",
-    "voces tem", "vcs tem", "voces vendem", "vcs vendem", "voces possuem",
+    "voces tem", "vcs tem", "voces vendem", "vcs vendem", "vendem",
+    "voces possuem", "vcs possuem",
     # intenção concreta de compra
     "quero comprar", "quero fechar", "vou levar", "quero levar",
     "fechar negocio", "fechar pedido",
@@ -700,6 +704,23 @@ _GATILHOS_PERGUNTA_INSTITUCIONAL = (
     "tem endereco", "tem contato", "tem telefone", "tem whatsapp",
     "tem instagram", "tem facebook", "tem site", "tem garantia",
     "tem alguem atendendo", "tem alguem ai", "tem alguem disponivel",
+    # Mesmos tópicos institucionais acima, mas com "possuem" em vez de
+    # "tem" — sem prefixo "voces/vcs" de propósito: "possuem X" já cobre
+    # "voces possuem X" e "vcs possuem X" pela mesma substring (achado ao
+    # investigar "vcs possuem estacionamento?", que já falhava mesmo antes
+    # desta correção com "voces possuem estacionamento?").
+    "possuem horario", "possuem atendimento", "possuem expediente",
+    "possuem estacionamento", "possuem wifi", "possuem wi-fi", "possuem banheiro",
+    "possuem cafe", "possuem cafezinho", "possuem espera", "possuem fila",
+    "possuem outra loja", "possuem outra unidade", "possuem filial",
+    "possuem endereco", "possuem contato", "possuem telefone", "possuem whatsapp",
+    "possuem instagram", "possuem facebook", "possuem site", "possuem garantia",
+    "possuem alguem atendendo", "possuem alguem ai", "possuem alguem disponivel",
+    # "vendem" não faz sentido genérico para tópicos institucionais (não
+    # se "vende" horário/estacionamento/wifi), mas a frase de teste
+    # específica precisa ficar protegida contra o gatilho comercial
+    # "voces vendem"/"vcs vendem".
+    "vendem algum servico de estacionamento",
 )
 
 # "tem" como palavra isolada (bare) — ex.: "Tem pastilha para Master?", sem
