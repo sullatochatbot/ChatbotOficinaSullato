@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import time
 import random
 import threading
@@ -524,6 +525,56 @@ def _enviar_alerta_handoff(numero_cliente, nome_cliente):
         print("❌ Erro alerta handoff:", e)
 
 # ============================================================
+# INSTITUCIONAL — "Quem criou este chatbot/sistema?" — intenção própria,
+# independente de Serviços/Peças/Comercial/Trabalhe Conosco. Detector
+# DETERMINÍSTICO (não depende da IA/Claude estar configurado ou responder
+# no formato certo). Nunca aciona Juliano/Priscila nem Trabalhe Conosco.
+# Não reinicia nem encerra a sessão — a conversa segue normalmente depois.
+# Checada com PRIORIDADE MÁXIMA em texto livre (antes de tudo o mais).
+# ============================================================
+
+_GATILHOS_INSTITUCIONAL_CRIADOR = (
+    "quem criou", "quem fez esse chatbot", "quem fez este chatbot",
+    "quem fez esse bot", "quem fez este bot", "quem fez essa ia",
+    "quem fez este sistema", "quem fez esse sistema",
+    "quem desenvolveu", "quem e o desenvolvedor", "quem e a desenvolvedora",
+    "desenvolvido por quem", "foi feito por quem", "feito por quem",
+    "voces que fizeram esse chatbot", "voces que fizeram este chatbot",
+    "voces que fizeram esse sistema", "voces que fizeram essa ia",
+    "como faco para ter um igual", "como ter um sistema igual",
+    "como ter um chatbot igual", "quero um chatbot desse",
+    "quero um sistema igual", "quero um chatbot igual", "quero uma ia dessa",
+    "voces fazem chatbot", "voces desenvolvem chatbot", "voces desenvolvem sistema",
+    "voces desenvolvem esse sistema", "voces desenvolvem esse tipo de sistema",
+    "quanto custa um sistema desse", "quanto custa um chatbot desse",
+    "quanto custa essa ia", "quanto custa esse sistema", "quanto custa esse chatbot",
+)
+
+
+def _eh_pergunta_institucional_criador(texto_norm: str) -> bool:
+    return any(g in texto_norm for g in _GATILHOS_INSTITUCIONAL_CRIADOR)
+
+
+def _texto_institucional_criador() -> str:
+    """Texto fixo aprovado — determinístico, nunca gerado pela IA."""
+    return (
+        "Ótima pergunta! 🙌\n\n"
+        "Este assistente virtual foi desenvolvido por *Anderson R. Sullato*.\n\n"
+        "Se você tiver interesse em um sistema similar ou quiser conversar sobre isso, "
+        "pode entrar em contato direto com ele:\n\n"
+        "📱 *WhatsApp*: (11) 98878-0161 | https://wa.me/5511988780161\n"
+        "📧 *Email*: anderson@sullato.com.br | andersonsullato@gmail.com\n\n"
+        "Qualquer outra dúvida sobre a Sullato, fico à disposição! 😊"
+    )
+
+
+def _acionar_institucional_criador(numero: str) -> None:
+    """Só envia a resposta fixa — não toca em sessao/etapa, nunca reinicia
+    nem encerra a sessão. A conversa segue normalmente na próxima mensagem."""
+    enviar_texto(numero, _texto_institucional_criador())
+
+
+# ============================================================
 # TRABALHE CONOSCO — intenção própria, independente de Serviços/Peças/
 # Comercial. Nunca aciona o handoff Juliano/Priscila. Checada com
 # PRIORIDADE MÁXIMA em texto livre (antes do handoff comercial e da IA).
@@ -539,6 +590,7 @@ _GATILHOS_TRABALHE_CONOSCO = (
     "vagas disponiveis", "processo seletivo", "estao contratando",
     "vcs contratam", "voces contratam",
     "oportunidade de emprego", "oportunidade de trabalho", "procurando emprego",
+    "tem emprego", "tem alguma vaga",
     "mandar curriculo", "enviar curriculo", "mandar meu curriculo",
     "enviar meu curriculo", "onde envio meu curriculo", "deixar meu curriculo",
     "deixar curriculo", "trabalhe conosco", "trabalhem conosco",
@@ -591,6 +643,14 @@ def _acionar_trabalhe_conosco(numero: str, sessao: dict) -> None:
 # coberto pelo handoff genérico ao Érico, _GATILHOS_HANDOFF, mecanismo
 # separado e intocado).
 _GATILHOS_HANDOFF_COMERCIAL = (
+    # procura ativa de peça/serviço específico (bucket B — diagnóstico real:
+    # "estou procurando pastilhas de freio para uma Master 2022. Vocês
+    # trabalham com essa peça?" não batia em nenhum grupo abaixo; esta é a
+    # forma mais comum de um cliente real abrir a conversa pedindo algo)
+    "estou procurando", "procurando por", "procuro", "estou atras de",
+    "preciso de", "precisando de", "estou precisando de",
+    "voces trabalham com", "vcs trabalham com", "trabalham com",
+    "voces tem", "vcs tem", "voces vendem", "vcs vendem", "voces possuem",
     # intenção concreta de compra
     "quero comprar", "quero fechar", "vou levar", "quero levar",
     "fechar negocio", "fechar pedido",
@@ -610,9 +670,57 @@ _GATILHOS_HANDOFF_COMERCIAL = (
     "falar com o comercial", "falar com a equipe comercial",
 )
 
+# Perguntas puramente conceituais/informativas (bucket A) — checadas ANTES
+# do handoff comercial. Mesmo que a mensagem contenha uma palavra de
+# "procura" por perto (ex.: "procurando saber para que serve a pastilha"),
+# uma pergunta claramente conceitual vence e a IA responde normalmente,
+# sem handoff prematuro. Frases, não palavras soltas.
+_GATILHOS_PERGUNTA_INFORMATIVA = (
+    "para que serve", "para que servem", "o que e", "o que sao", "o que faz",
+    "qual a funcao", "qual e a funcao", "quais os sintomas",
+    "quais sao os sintomas", "qual a diferenca entre", "qual a diferenca",
+    "como funciona", "quando trocar", "de quanto em quanto tempo",
+)
+
+
+def _eh_pergunta_informativa(texto_norm: str) -> bool:
+    return any(g in texto_norm for g in _GATILHOS_PERGUNTA_INFORMATIVA)
+
+
+# Perguntas institucionais que legitimamente usam "tem" (horário, endereço,
+# estacionamento, etc.) — excluídas ANTES de considerar o "tem" solto
+# (bare) como sinal comercial. Também protege frases já existentes como
+# "vocês tem" contra esse mesmo tipo de falso positivo (ex.: "vocês tem
+# horário aos sábados?" não deve virar handoff).
+_GATILHOS_PERGUNTA_INSTITUCIONAL = (
+    "tem horario", "tem atendimento", "tem expediente",
+    "tem estacionamento", "tem wifi", "tem wi-fi", "tem banheiro",
+    "tem cafe", "tem cafezinho", "tem espera", "tem fila",
+    "tem outra loja", "tem outra unidade", "tem filial",
+    "tem endereco", "tem contato", "tem telefone", "tem whatsapp",
+    "tem instagram", "tem facebook", "tem site", "tem garantia",
+    "tem alguem atendendo", "tem alguem ai", "tem alguem disponivel",
+)
+
+# "tem" como palavra isolada (bare) — ex.: "Tem pastilha para Master?", sem
+# o pronome "vocês/vcs" antes. Usa \b (limite de palavra) de propósito: um
+# "in" simples bateria em qualquer palavra que contenha as letras "tem"
+# (também, tempo, contém, mantém, tentar...), o que geraria falso positivo
+# em quase qualquer frase. Só considerado quando NÃO for pergunta
+# institucional nem informativa (checadas antes).
+_BARE_TEM_RE = re.compile(r"\btem\b")
+
+
+def _eh_pergunta_institucional(texto_norm: str) -> bool:
+    return any(g in texto_norm for g in _GATILHOS_PERGUNTA_INSTITUCIONAL)
+
 
 def _eh_sinal_handoff_comercial(texto_norm: str) -> bool:
-    return any(g in texto_norm for g in _GATILHOS_HANDOFF_COMERCIAL)
+    if _eh_pergunta_informativa(texto_norm) or _eh_pergunta_institucional(texto_norm):
+        return False
+    if any(g in texto_norm for g in _GATILHOS_HANDOFF_COMERCIAL):
+        return True
+    return bool(_BARE_TEM_RE.search(texto_norm))
 
 
 _RESPONSAVEIS_HANDOFF = [
@@ -1003,12 +1111,18 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
             "5", "btn_endereco", "6", "btn_mais_opcoes", "6.1", "btn_trabalhe_conosco",
         ]:
             # Prioridade (definida e aprovada):
-            # 1) TRABALHE_CONOSCO — nunca aciona o handoff comercial.
-            # 2) comandos/fluxos estruturados — já tratados acima (fora deste
+            # 1) INSTITUCIONAL "quem criou" — nunca aciona handoff nem
+            #    Trabalhe Conosco; não reinicia/encerra a sessão.
+            # 2) TRABALHE_CONOSCO — nunca aciona o handoff comercial.
+            # 3) comandos/fluxos estruturados — já tratados acima (fora deste
             #    bloco de texto livre), nada a fazer aqui.
-            # 3) sinal comercial forte (peças/serviços) — Juliano/Priscila.
-            # 4) IA / conversa livre normal.
+            # 4) sinal comercial forte (peças/serviços) — Juliano/Priscila.
+            # 5) IA / conversa livre normal.
             texto_norm = _normalizar_texto(texto_digitado)
+
+            if _eh_pergunta_institucional_criador(texto_norm):
+                _acionar_institucional_criador(numero)
+                return
 
             if _eh_intencao_trabalhe_conosco(texto_norm):
                 _acionar_trabalhe_conosco(numero, sessao)
