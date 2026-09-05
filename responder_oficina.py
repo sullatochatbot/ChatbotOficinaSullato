@@ -2,6 +2,9 @@
 import os
 import time
 import random
+import threading
+import unicodedata
+import contextvars
 import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -40,7 +43,16 @@ def consultar_endereco_por_cep(cep):
 # VARIÁVEIS DE AMBIENTE
 # ============================================================
 
-WHATSAPP_API_URL = f"https://graph.facebook.com/v20.0/{os.getenv('WA_PHONE_NUMBER_ID')}"
+# Multi-número Meta (mesma WABA) — TS Sullato Auto Service com dois números
+# de entrada/saída. WA_PHONE_NUMBER_ID = número principal — usado como
+# FALLBACK só em rotinas legadas que não se originam de uma mensagem
+# recebida (disparo via Apps Script, chamadas antigas sem
+# sender_phone_number_id). O número usado para RESPONDER uma conversa é
+# sempre o mesmo que a recebeu (sender_phone_number_id, definido por
+# webhook.py a partir de metadata.phone_number_id) — nunca escolhido às
+# cegas.
+WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID")
+WA_PHONE_NUMBER_ID_2 = os.getenv("WA_PHONE_NUMBER_ID_2")
 WHATSAPP_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 GOOGLE_SHEETS_URL = os.getenv("OFICINA_SHEET_WEBHOOK_URL")
 SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
@@ -48,21 +60,72 @@ SECRET_KEY = os.getenv("OFICINA_SHEETS_SECRET")
 TIMEOUT_SESSAO = 3600
 SESSOES = {}
 
+# Guarda, durante o processamento da mensagem atual, qual phone_number_id a
+# recebeu — usado só por _url_mensagens() para montar a URL de envio, sem
+# alterar a assinatura nem os ~73 pontos onde enviar_texto/enviar_botoes/
+# enviar_imagem já são chamadas hoje. contextvars (em vez de uma variável
+# global comum) porque continua correto mesmo se o servidor rodar com mais
+# de uma thread/worker no futuro.
+_phone_number_id_atual = contextvars.ContextVar("_phone_number_id_atual", default=None)
+
+
+def _url_mensagens() -> str:
+    """
+    Monta a URL da Graph API para enviar mensagens, usando o
+    phone_number_id que recebeu a mensagem em processamento (gravado no
+    início de responder_oficina()). Fora desse contexto — rotinas legadas
+    que não se originam de uma mensagem recebida — cai no WA_PHONE_NUMBER_ID
+    padrão. Nunca escolhe um número por conta própria.
+    """
+    phone_id = _phone_number_id_atual.get() or WA_PHONE_NUMBER_ID
+    return f"https://graph.facebook.com/v20.0/{phone_id}/messages"
+
+
+def _chave_sessao(numero, sender_phone_number_id=None):
+    """
+    Chave usada em SESSOES e no histórico da IA (_HIST_IA). Multi-número:
+    compõe (sender_phone_number_id, numero) para que o mesmo cliente
+    conversando simultaneamente com os dois números da TS Sullato tenha
+    sessão/etapa/dados e histórico de IA totalmente independentes. Sem
+    sender_phone_number_id (chamadas antigas/testes), mantém o
+    comportamento anterior — chave é só o número do cliente.
+    """
+    if sender_phone_number_id:
+        return f"{sender_phone_number_id}:{numero}"
+    return numero
+
+
+def _normalizar_texto(txt):
+    """
+    Normaliza texto (minúsculas, sem acento) para os detectores de
+    intenção novos (Trabalhe Conosco / handoff comercial). Não altera a
+    variável `texto` usada no resto do state machine (só minúscula, sem
+    remoção de acento) — usada só por esses dois detectores, para não
+    arriscar nenhuma comparação já existente no arquivo.
+    """
+    if not txt:
+        return ""
+    t = unicodedata.normalize("NFKD", txt.strip().lower())
+    return "".join(c for c in t if not unicodedata.combining(c))
+
+
 _HIST_IA: dict = {}
 _HIST_TTL = 3600
 
-def _get_hist_ia(numero):
-    h = _HIST_IA.get(numero, {})
+def _get_hist_ia(numero, sender_phone_number_id=None):
+    chave = _chave_sessao(numero, sender_phone_number_id)
+    h = _HIST_IA.get(chave, {})
     if time.time() - h.get("ts", 0) > _HIST_TTL:
         return []
     return list(h.get("msgs", []))
 
-def _add_hist_ia(numero, user_msg, assistant_msg):
-    h = _HIST_IA.get(numero, {})
+def _add_hist_ia(numero, user_msg, assistant_msg, sender_phone_number_id=None):
+    chave = _chave_sessao(numero, sender_phone_number_id)
+    h = _HIST_IA.get(chave, {})
     msgs = list(h.get("msgs", []))
     msgs.append({"role": "user", "content": user_msg})
     msgs.append({"role": "assistant", "content": assistant_msg})
-    _HIST_IA[numero] = {"msgs": msgs[-10:], "ts": time.time()}
+    _HIST_IA[chave] = {"msgs": msgs[-10:], "ts": time.time()}
 
 # ============================================================
 # ENVIAR TEXTO
@@ -80,7 +143,7 @@ def enviar_texto(numero, texto):
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
-        requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
+        requests.post(_url_mensagens(), json=payload, headers=headers)
     except Exception as e:
         print("Erro enviar texto:", e)
 
@@ -111,7 +174,7 @@ def enviar_botoes(numero, texto, botoes):
             "Content-Type": "application/json",
         }
 
-        requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers)
+        requests.post(_url_mensagens(), json=payload, headers=headers)
 
     except Exception as e:
         print("Erro enviar botões:", e)
@@ -173,7 +236,7 @@ def enviar_imagem(numero, url):
         }
 
         r = requests.post(
-            f"{WHATSAPP_API_URL}/messages",
+            _url_mensagens(),
             json=payload,
             headers=headers,
             timeout=10
@@ -188,9 +251,10 @@ def enviar_imagem(numero, url):
 # RESETAR SESSÃO
 # ============================================================
 
-def reset_sessao(numero):
-    if numero in SESSOES:
-        del SESSOES[numero]
+def reset_sessao(numero, sender_phone_number_id=None):
+    chave = _chave_sessao(numero, sender_phone_number_id)
+    if chave in SESSOES:
+        del SESSOES[chave]
 
 # ============================================================
 # HORÁRIO DE ATENDIMENTO — OFICINA
@@ -215,8 +279,8 @@ def _em_horario_oficina():
 # INICIAR SESSÃO
 # ============================================================
 
-def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
-    SESSOES[numero] = {
+def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True, sender_phone_number_id=None):
+    SESSOES[_chave_sessao(numero, sender_phone_number_id)] = {
         "etapa": "menu_inicial",
         "inicio": time.time(),
         "acesso_registrado": False,   # 🔥 NOVO CONTROLE
@@ -225,6 +289,11 @@ def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
             "nome_whatsapp": nome_whatsapp,
             "origem_cliente": "chatbot oficina",
         },
+        # Reservados para evolução futura — não usados por nenhuma lógica
+        # nesta rodada além do que está descrito nos próprios comentários:
+        "responsavel_handoff": None,   # {"nome","telefone","link"} quando o handoff comercial (Juliano/Priscila) for acionado nesta sessão
+        "trabalhe_conosco": None,      # {"ativo": True, "origem": "whatsapp"} quando a intenção for reconhecida; futuramente pode evoluir para area_interesse/vaga_id/experiencia/curriculo/etapa/dados_candidato sem reconstruir a sessão
+        "produto_contexto": None,      # reservado para a futura integração com o catálogo/site (sku, nome, fabricante, aplicacao, especificacoes, compatibilidade, preco, estoque, garantia, url)
     }
 
     if enviar_menu:
@@ -238,7 +307,8 @@ def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True):
             "2 – Peças\n"
             "3 – Pós-venda / Garantia\n"
             "4 – Retorno Oficina\n"
-            "5 – Endereço e Contato"
+            "5 – Endereço e Contato\n"
+            "6 – Mais opções"
         )
 
 # ============================================================
@@ -448,16 +518,279 @@ def _enviar_alerta_handoff(numero_cliente, nome_cliente):
             "Authorization": f"Bearer {WHATSAPP_TOKEN}",
             "Content-Type": "application/json"
         }
-        requests.post(f"{WHATSAPP_API_URL}/messages", json=payload, headers=headers, timeout=10)
+        requests.post(_url_mensagens(), json=payload, headers=headers, timeout=10)
         print("🔔 Alerta handoff Oficina enviado")
     except Exception as e:
         print("❌ Erro alerta handoff:", e)
 
 # ============================================================
+# TRABALHE CONOSCO — intenção própria, independente de Serviços/Peças/
+# Comercial. Nunca aciona o handoff Juliano/Priscila. Checada com
+# PRIORIDADE MÁXIMA em texto livre (antes do handoff comercial e da IA).
+# ============================================================
+
+# Frases (não palavras isoladas) — evita falso positivo de "vaga"/"emprego"/
+# "currículo"/"rh" soltos em outro contexto, conforme decisão explícita.
+_GATILHOS_TRABALHE_CONOSCO = (
+    "trabalhar com voces", "trabalhar na ts", "trabalhar na sullato",
+    "trabalhar na oficina", "trabalhar ai", "trabalhar aqui",
+    "quero trabalhar", "gostaria de trabalhar",
+    "tem vaga", "tem vagas", "abriu vaga", "abriram vaga", "vaga para mecanico",
+    "vagas disponiveis", "processo seletivo", "estao contratando",
+    "vcs contratam", "voces contratam",
+    "oportunidade de emprego", "oportunidade de trabalho", "procurando emprego",
+    "mandar curriculo", "enviar curriculo", "mandar meu curriculo",
+    "enviar meu curriculo", "onde envio meu curriculo", "deixar meu curriculo",
+    "deixar curriculo", "trabalhe conosco", "trabalhem conosco",
+    "falar com o rh", "falar com rh", "contato do rh", "setor de rh",
+)
+
+
+def _eh_intencao_trabalhe_conosco(texto_norm: str) -> bool:
+    return any(g in texto_norm for g in _GATILHOS_TRABALHE_CONOSCO)
+
+
+def _texto_trabalhe_conosco() -> str:
+    """Mensagem própria da TS Sullato Auto Service — autoral, não copiada
+    do texto de Trabalhe Conosco do chatbot Sullato (referência só de
+    arquitetura/comportamento, não de conteúdo)."""
+    return (
+        "Que legal seu interesse em fazer parte da equipe da "
+        "*TS Sullato Auto Service*! 🔧\n\n"
+        "Pode me contar um pouco:\n"
+        "• Seu nome completo\n"
+        "• Qual área te interessa (oficina, peças, atendimento, etc.)\n\n"
+        "Se preferir, já pode colar aqui um resumo da sua experiência ou currículo.\n\n"
+        "Assim que possível, alguém da nossa equipe vai dar uma olhada na sua "
+        "mensagem. Obrigado pelo interesse!"
+    )
+
+
+def _acionar_trabalhe_conosco(numero: str, sessao: dict) -> None:
+    """
+    Registra a intenção na sessão (preparação para evolução futura — SEM
+    criar state machine de candidato, SEM formulário, SEM Sheets, SEM
+    encaminhamento nesta rodada) e envia a mensagem ao candidato. Não
+    bloqueia nem "prende" as mensagens seguintes — a próxima mensagem do
+    cliente volta a ser reavaliada normalmente do zero.
+    """
+    sessao["trabalhe_conosco"] = {"ativo": True, "origem": "whatsapp"}
+    enviar_texto(numero, _texto_trabalhe_conosco())
+
+
+# ============================================================
+# HANDOFF COMERCIAL — PEÇAS/SERVIÇOS (Juliano/Priscila)
+# ============================================================
+# Sinais FORTES o bastante para justificar intervenção humana — mencionar
+# uma peça/serviço, por si só, NÃO aciona isso (a IA pode conversar
+# livremente sobre o assunto antes). Reflete o item 5 revisado: intenção
+# concreta de compra, orçamento/cotação, confirmação de disponibilidade/
+# preço quando depende de humano, confirmação técnica de aplicação/
+# compatibilidade, instalação, agendamento, ou pedido explícito de falar
+# com vendedor/consultor comercial (nunca "atendente" sozinho — isso já é
+# coberto pelo handoff genérico ao Érico, _GATILHOS_HANDOFF, mecanismo
+# separado e intocado).
+_GATILHOS_HANDOFF_COMERCIAL = (
+    # intenção concreta de compra
+    "quero comprar", "quero fechar", "vou levar", "quero levar",
+    "fechar negocio", "fechar pedido",
+    # orçamento/cotação
+    "orcamento", "cotacao", "quanto custa", "qual o valor", "qual o preco",
+    "quanto fica", "quanto sai", "me passa o preco", "me passa o valor",
+    # confirmação de disponibilidade/preço/aplicação quando depende de humano
+    "tem em estoque", "tem disponivel", "confirmar disponibilidade",
+    "confirmar estoque", "serve no meu carro", "e compativel",
+    "confirma se serve", "confirmar aplicacao",
+    # instalação
+    "voces instalam", "fazem a instalacao", "quero instalar",
+    # agendamento
+    "quero agendar", "posso agendar", "marcar um horario", "marcar horario",
+    # solicitação explícita de vendedor/consultor comercial
+    "falar com um vendedor", "falar com o vendedor", "falar com consultor",
+    "falar com o comercial", "falar com a equipe comercial",
+)
+
+
+def _eh_sinal_handoff_comercial(texto_norm: str) -> bool:
+    return any(g in texto_norm for g in _GATILHOS_HANDOFF_COMERCIAL)
+
+
+_RESPONSAVEIS_HANDOFF = [
+    {"nome": "Juliano",  "telefone": "(11) 99373-8592", "link": "https://wa.me/5511993738592"},
+    {"nome": "Priscila", "telefone": "(11) 99408-1931", "link": "https://wa.me/5511994081931"},
+]
+_RODIZIO_INDICE_HANDOFF = 0
+_LOCK_RODIZIO_HANDOFF = threading.Lock()
+
+
+def _responsavel_da_vez() -> dict:
+    """Responsável que receberia o próximo lead, sem avançar o índice."""
+    with _LOCK_RODIZIO_HANDOFF:
+        return _RESPONSAVEIS_HANDOFF[_RODIZIO_INDICE_HANDOFF % len(_RESPONSAVEIS_HANDOFF)]
+
+
+def _avancar_rodizio_handoff() -> None:
+    """Avança o índice do rodízio — chamar só após envio confirmado ao
+    responsável. threading.Lock() protege contra concorrência de threads
+    dentro do mesmo processo (não cobre múltiplos workers/processos —
+    aceito conforme definido: 1 worker no Render, sem persistência
+    externa; após restart o índice volta a 0 e o próximo lead vai para
+    Juliano)."""
+    global _RODIZIO_INDICE_HANDOFF
+    with _LOCK_RODIZIO_HANDOFF:
+        _RODIZIO_INDICE_HANDOFF = (_RODIZIO_INDICE_HANDOFF + 1) % len(_RESPONSAVEIS_HANDOFF)
+
+
+# Nome do template aprovado pela Meta para avisar Juliano/Priscila
+# automaticamente. Template já criado, AINDA EM ANÁLISE — NÃO adivinhar
+# nem inventar o nome. Configure via variável de ambiente assim que a Meta
+# aprovar; nenhum código precisa mudar depois disso, só a variável.
+TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL = os.getenv("TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL")
+
+
+def _enviar_template_novo_atendimento_responsavel(numero_responsavel, nome_cliente, interesse, veiculo, link_cliente) -> bool:
+    """
+    Envia o template aprovado (Estrutura combinada: 4 variáveis — nome,
+    interesse, veículo, link do cliente) para abrir/reabrir a janela de
+    conversa com o responsável. Só dispara quando
+    TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL já estiver configurado — antes
+    disso, não faz nada (retorna False) e quem chama segue com o texto
+    livre. Usa _url_mensagens() — respeita o número que recebeu a
+    conversa, igual a todo o resto do multi-número.
+    """
+    if not TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL:
+        return False
+    try:
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": numero_responsavel,
+            "type": "template",
+            "template": {
+                "name": TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL,
+                "language": {"code": "pt_BR"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": nome_cliente or "Cliente"},
+                            {"type": "text", "text": interesse},
+                            {"type": "text", "text": veiculo},
+                            {"type": "text", "text": link_cliente},
+                        ],
+                    }
+                ],
+            },
+        }
+        headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
+        r = requests.post(_url_mensagens(), json=payload, headers=headers, timeout=30)
+        print("📤 Template novo atendimento (responsável):", r.status_code, r.text)
+        return 200 <= r.status_code < 300
+    except Exception as e:
+        print("❌ Erro ao enviar template novo atendimento (responsável):", e)
+        return False
+
+
+def _enviar_texto_com_status(numero, texto) -> bool:
+    """
+    Variante de enviar_texto() que informa se o envio teve sucesso — usada
+    só na notificação de handoff ao responsável, para decidir se o
+    rodízio pode avançar. enviar_texto() não é alterada (mesmo padrão já
+    usado no chatbot Sullato: _enviar_mensagem_com_status).
+    """
+    try:
+        payload = {"messaging_product": "whatsapp", "to": numero, "text": {"body": texto}}
+        headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
+        r = requests.post(_url_mensagens(), json=payload, headers=headers, timeout=30)
+        print("📤 Aviso ao responsável (texto livre):", r.status_code, r.text)
+        return 200 <= r.status_code < 300
+    except Exception as e:
+        print("❌ Erro ao enviar aviso ao responsável:", e)
+        return False
+
+
+def _notificar_responsavel_handoff(responsavel, nome_cliente, interesse, veiculo, link_cliente) -> bool:
+    """
+    Avisa o responsável sobre o novo lead comercial. Tenta o template
+    aprovado primeiro (só dispara de fato quando configurado); em
+    qualquer caso, também garante o aviso em texto livre com o resumo e o
+    link clicável do cliente (sujeito à janela de 24h da Meta enquanto o
+    template não está pronto). True se pelo menos um dos dois canais foi
+    confirmado.
+    """
+    numero_responsavel = responsavel["link"].replace("https://wa.me/", "").strip()
+
+    template_ok = _enviar_template_novo_atendimento_responsavel(
+        numero_responsavel, nome_cliente, interesse, veiculo, link_cliente
+    )
+    if TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL and not template_ok:
+        print(f"⚠️ Falha ao enviar template ao responsável {responsavel['nome']} — seguindo com texto livre.")
+
+    texto_lead = (
+        "🔔 Novo atendimento – TS Sullato Auto Service\n\n"
+        f"Cliente: {nome_cliente or 'não informado'}\n"
+        f"Interesse: {interesse}\n"
+        f"Veículo: {veiculo}\n\n"
+        f"📲 Falar com o cliente:\n{link_cliente}\n\n"
+        "Solicitação recebida pelo atendimento automático da TS Sullato Auto Service."
+    )
+    texto_ok = _enviar_texto_com_status(numero_responsavel, texto_lead)
+
+    return template_ok or texto_ok
+
+
+def _acionar_handoff_comercial(numero: str, nome_whatsapp: str, sessao: dict, texto_gatilho: str) -> None:
+    """
+    Encaminha o cliente para Juliano ou Priscila (rodízio) quando um sinal
+    comercial forte é identificado em texto livre. Idempotente por sessão
+    (sessao["responsavel_handoff"]): se já houver responsável atribuído
+    nesta conversa, reaproveita sem sortear nem notificar de novo — evita
+    lead duplicado. Nunca inventa preço/estoque/prazo/diagnóstico: só
+    reaproveita dados que já existem na sessão (marca_modelo do formulário
+    longo, se já preenchido; produto_contexto, quando existir no futuro).
+    """
+    ja_atribuido = bool(sessao.get("responsavel_handoff"))
+    responsavel = sessao["responsavel_handoff"] if ja_atribuido else _responsavel_da_vez()
+
+    dados = sessao.get("dados") or {}
+    produto_contexto = sessao.get("produto_contexto") or {}
+    veiculo = produto_contexto.get("nome") or dados.get("marca_modelo") or "não especificado"
+    interesse = (texto_gatilho or "").strip()[:200] or "não especificado"
+    numero_normalizado = "".join(ch for ch in (numero or "") if ch.isdigit())
+    link_cliente = f"https://wa.me/{numero_normalizado}"
+
+    if not ja_atribuido:
+        enviado = _notificar_responsavel_handoff(responsavel, nome_whatsapp, interesse, veiculo, link_cliente)
+        if not enviado:
+            print(f"⚠️ Falha ao notificar {responsavel['nome']} — handoff NÃO concluído, tentará de novo na próxima mensagem.")
+            return
+        sessao["responsavel_handoff"] = responsavel
+        _avancar_rodizio_handoff()
+
+    enviar_texto(
+        numero,
+        f"Perfeito, {nome_whatsapp}! 👍\n\n"
+        f"Vou encaminhar sua solicitação para o(a) {responsavel['nome']}, da nossa equipe.\n"
+        "Ele(a) vai dar continuidade ao seu atendimento.\n\n"
+        f"📱 {responsavel['nome']}: {responsavel['link']}"
+    )
+
+
+# ============================================================
 # FLUXO PRINCIPAL
 # ============================================================
 
-def responder_oficina(numero, texto_digitado, nome_whatsapp):
+def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number_id=None):
+
+    # Multi-número Meta: grava o phone_number_id que recebeu esta mensagem
+    # para toda a duração do processamento — é ele que enviar_texto()/
+    # enviar_botoes()/enviar_imagem()/_enviar_alerta_handoff() vão usar via
+    # _url_mensagens(), sem precisar de nenhum parâmetro extra nelas.
+    _phone_number_id_atual.set(sender_phone_number_id)
+    print(
+        f"📞 Respondendo cliente {numero} pelo phone_number_id="
+        f"{sender_phone_number_id or WA_PHONE_NUMBER_ID} "
+        f"({'recebido' if sender_phone_number_id else 'fallback padrão'})"
+    )
 
     texto = (texto_digitado or "").strip().lower()
 
@@ -467,10 +800,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if texto in ["oi", "ola", "olá", "menu", "inicio", "início"]:
 
-        reset_sessao(numero)
-        iniciar_sessao(numero, nome_whatsapp, enviar_menu=True)
+        reset_sessao(numero, sender_phone_number_id)
+        iniciar_sessao(numero, nome_whatsapp, enviar_menu=True, sender_phone_number_id=sender_phone_number_id)
 
-        sessao = SESSOES[numero]
+        sessao = SESSOES[_chave_sessao(numero, sender_phone_number_id)]
 
         # REGISTRA IMEDIATAMENTE O ACESSO NA PLANILHA
         try:
@@ -515,7 +848,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             "Se preferir, fale diretamente com o Érico:\n"
             "👉 https://wa.me/5511940497678"
         )
-        reset_sessao(numero)
+        reset_sessao(numero, sender_phone_number_id)
         return
 
     # ============================================================
@@ -537,9 +870,9 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if texto in ["__video__", "__documento__", "__mensagem__"]:
 
-        if numero not in SESSOES:
+        if _chave_sessao(numero, sender_phone_number_id) not in SESSOES:
 
-            iniciar_sessao(numero, nome_whatsapp)
+            iniciar_sessao(numero, nome_whatsapp, sender_phone_number_id=sender_phone_number_id)
 
             try:
                 payload = {
@@ -572,7 +905,8 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             "2 – Peças\n"
             "3 – Pós-venda / Garantia\n"
             "4 – Retorno Oficina\n"
-            "5 – Endereço e Contato"
+            "5 – Endereço e Contato\n"
+            "6 – Mais opções"
         )
 
         return
@@ -582,12 +916,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
     # PRIMEIRO CONTATO OU NOVA SESSÃO
     # ============================================================
 
-    if numero not in SESSOES:
+    if _chave_sessao(numero, sender_phone_number_id) not in SESSOES:
 
         tem_conteudo = bool(texto)
 
         # Exibe menu só quando não há conteúdo; áudio/texto livre já traz intenção
-        iniciar_sessao(numero, nome_whatsapp, enviar_menu=not tem_conteudo)
+        iniciar_sessao(numero, nome_whatsapp, enviar_menu=not tem_conteudo, sender_phone_number_id=sender_phone_number_id)
 
         # 🔥 REGISTRA ACESSO INICIAL
         try:
@@ -611,7 +945,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         if not tem_conteudo:
             return
 
-    sessao = SESSOES[numero]
+    sessao = SESSOES[_chave_sessao(numero, sender_phone_number_id)]
 
     # ============================================================
     # TIMEOUT DE SESSÃO
@@ -622,10 +956,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
         enviar_texto(numero, "Sessão expirada. Vamos recomeçar! 👋")
 
         # Encerra sessão anterior
-        reset_sessao(numero)
+        reset_sessao(numero, sender_phone_number_id)
 
         # Inicia nova sessão
-        iniciar_sessao(numero, nome_whatsapp)
+        iniciar_sessao(numero, nome_whatsapp, sender_phone_number_id=sender_phone_number_id)
 
         # 🔥 REGISTRA NOVO ACESSO POR TIMEOUT
         try:
@@ -664,28 +998,47 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
     if etapa == "menu_inicial":
 
-        if texto not in ["1", "btn_servicos", "2", "btn_pecas", "3", "btn_pos_venda", "4", "btn_retorno", "5", "btn_endereco"]:
+        if texto not in [
+            "1", "btn_servicos", "2", "btn_pecas", "3", "btn_pos_venda", "4", "btn_retorno",
+            "5", "btn_endereco", "6", "btn_mais_opcoes", "6.1", "btn_trabalhe_conosco",
+        ]:
+            # Prioridade (definida e aprovada):
+            # 1) TRABALHE_CONOSCO — nunca aciona o handoff comercial.
+            # 2) comandos/fluxos estruturados — já tratados acima (fora deste
+            #    bloco de texto livre), nada a fazer aqui.
+            # 3) sinal comercial forte (peças/serviços) — Juliano/Priscila.
+            # 4) IA / conversa livre normal.
+            texto_norm = _normalizar_texto(texto_digitado)
+
+            if _eh_intencao_trabalhe_conosco(texto_norm):
+                _acionar_trabalhe_conosco(numero, sessao)
+                return
+
+            if _eh_sinal_handoff_comercial(texto_norm):
+                _acionar_handoff_comercial(numero, nome_whatsapp, sessao, texto_digitado)
+                return
+
             resposta_ia = None
             try:
                 from responder_ia import responder_com_ia
-                hist = _get_hist_ia(numero)
+                hist = _get_hist_ia(numero, sender_phone_number_id)
                 resposta_ia = responder_com_ia(texto_digitado, nome_whatsapp, historico=hist)
             except Exception:
                 pass
             if resposta_ia:
-                _add_hist_ia(numero, texto_digitado, resposta_ia)
+                _add_hist_ia(numero, texto_digitado, resposta_ia, sender_phone_number_id)
                 enviar_texto(numero, resposta_ia)
                 enviar_texto(
                     numero,
                     "Para continuar, escolha uma opção:\n"
-                    "1 – Serviços\n2 – Peças\n3 – Pós-venda / Garantia\n4 – Retorno Oficina\n5 – Endereço e Contato"
+                    "1 – Serviços\n2 – Peças\n3 – Pós-venda / Garantia\n4 – Retorno Oficina\n5 – Endereço e Contato\n6 – Mais opções"
                 )
                 return
             else:
                 enviar_texto(
                     numero,
                     "Olá! Para te atender melhor, escolha uma opção:\n"
-                    "1 – Serviços\n2 – Peças\n3 – Pós-venda / Garantia\n4 – Retorno Oficina\n5 – Endereço e Contato"
+                    "1 – Serviços\n2 – Peças\n3 – Pós-venda / Garantia\n4 – Retorno Oficina\n5 – Endereço e Contato\n6 – Mais opções"
                 )
                 return
 
@@ -791,7 +1144,19 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
             )
 
             enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
-            reset_sessao(numero)
+            reset_sessao(numero, sender_phone_number_id)
+            return
+
+        if texto in ["6", "btn_mais_opcoes"]:
+            enviar_texto(
+                numero,
+                "Mais opções:\n\n"
+                "6.1 – Trabalhe Conosco"
+            )
+            return
+
+        if texto in ["6.1", "btn_trabalhe_conosco"]:
+            _acionar_trabalhe_conosco(numero, sessao)
             return
 
     # ============================================================
@@ -1256,7 +1621,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp):
 
             enviar_texto(numero, mensagem_final)
 
-            reset_sessao(numero)  # 👈 depois do envio
+            reset_sessao(numero, sender_phone_number_id)  # 👈 depois do envio
 
             return
 

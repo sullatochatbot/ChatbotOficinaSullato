@@ -20,6 +20,14 @@ WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL")
 OFICINA_SHEETS_SECRET = os.getenv("OFICINA_SHEETS_SECRET")
 
+# Multi-número Meta (mesma WABA) — TS Sullato Auto Service com dois números
+# de entrada/saída. WA_PHONE_NUMBER_ID = número principal (fallback para
+# rotinas legadas que não se originam de uma mensagem recebida, ex.: disparo
+# via Apps Script, tratado à parte mais abaixo). WA_PHONE_NUMBER_ID_2 = novo
+# número. Só esses dois IDs são aceitos como receptor de uma mensagem real.
+WA_PHONE_NUMBER_ID_2 = os.getenv("WA_PHONE_NUMBER_ID_2")
+_PHONE_NUMBER_IDS_PERMITIDOS = {v for v in (WA_PHONE_NUMBER_ID, WA_PHONE_NUMBER_ID_2) if v}
+
 # ============================================================
 # HOME
 # ============================================================
@@ -161,6 +169,20 @@ def webhook():
             if not messages or not contacts:
                 continue
 
+            # Multi-número Meta: identifica por qual número da TS Sullato
+            # esta mensagem chegou (metadata.phone_number_id) — é por ELE
+            # que a resposta deve sair. Só aceita os dois IDs configurados;
+            # se vier ausente ou desconhecido (não deveria acontecer com
+            # tráfego real da Meta), não escolhe número aleatório — cai no
+            # WA_PHONE_NUMBER_ID padrão e avisa no log.
+            metadata = value.get("metadata") or {}
+            receptor_id = metadata.get("phone_number_id")
+            if receptor_id in _PHONE_NUMBER_IDS_PERMITIDOS:
+                sender_phone_number_id = receptor_id
+            else:
+                print(f"⚠️ phone_number_id recebido ausente/não reconhecido ({receptor_id!r}) — usando WA_PHONE_NUMBER_ID padrão")
+                sender_phone_number_id = WA_PHONE_NUMBER_ID
+
             msg = messages[0]
 
             if "from" not in msg:
@@ -203,7 +225,7 @@ def webhook():
 
                 if texto and texto.lower() in ["olá", "ola"]:
                     from responder_oficina import reset_sessao
-                    reset_sessao(numero)
+                    reset_sessao(numero, sender_phone_number_id)
 
             # ÁUDIO: transcreve via Groq Whisper
             elif msg.get("type") == "audio":
@@ -243,12 +265,16 @@ def webhook():
                     texto = "__mensagem__"
 
             print(f"👉 RECEBIDO ({tipo_msg}): {texto}")
-            print("📞 ENVIANDO PARA RESPONDER:", numero)
+            print(
+                f"📞 Cliente: {numero} | recebido em phone_number_id={receptor_id} "
+                f"| respondendo por phone_number_id={sender_phone_number_id}"
+            )
 
             responder_oficina(
                 numero=numero,
                 texto_digitado=texto,
-                nome_whatsapp=nome
+                nome_whatsapp=nome,
+                sender_phone_number_id=sender_phone_number_id
             )
 
     return "OK", 200
