@@ -302,7 +302,7 @@ def iniciar_sessao(numero, nome_whatsapp, enviar_menu=True, sender_phone_number_
             numero,
             f"Olá {nome_whatsapp}! 👋\n\n"
             "Seja bem-vindo à *TS Sullato Auto Service*.\n\n"
-            "💬 Você também pode escrever sua dúvida ou enviar um áudio explicando o que precisa.\n\n"
+            "💬 Pode falar comigo normalmente ou mandar um áudio 🎙️: tiro dúvidas sobre serviços 🔧 e peças ⚙️ e, quando precisar, te conecto com nossa equipe. 👤\n\n"
             "Se preferir, utilize uma das opções abaixo:\n\n"
             "1 – Serviços\n"
             "2 – Peças\n"
