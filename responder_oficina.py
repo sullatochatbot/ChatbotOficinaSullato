@@ -1254,13 +1254,13 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
             enviar_texto(
                 numero,
                 "📍 *Endereços e Contatos Sullato*\n\n"
-                "🌐 Site: https://www.sullato.com.br\n\n"
 
                 "📍 *Sullato Micros e Vans*\n"
                 "Av. São Miguel, 7900 – CEP 08070-001\n"
                 "☎️ (11) 2030-5081 / (11) 2031-5081\n"
                 "👉 https://wa.me/5511940545704\n"
                 "👉 https://wa.me/551120305081\n"
+                "🌐 Site: https://www.sullato.com.br\n\n"
                 "📸 Instagram: https://www.instagram.com/sullatomicrosevans\n\n"
 
                 "📍 *Sullato Veículos*\n"
@@ -1268,14 +1268,16 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
                 "☎️ (11) 2542-3332 / (11) 2542-3333\n"
                 "👉 https://wa.me/5511940545704\n"
                 "👉 https://wa.me/551125423330\n"
+                "🌐 Site: https://www.sullato.com.br\n\n"
                 "📸 Instagram: https://www.instagram.com/sullato.veiculos\n\n"
 
                 "📍 *Sullato Oficina e Peças*\n"
-                "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000\n"
-                "☎️ (11) 20922304\n"
-                "👉 https://wa.me/5511994081931\n"
-                "📸 Instagram: https://www.instagram.com/tssullatoautoservice/\n\n"
-                "🔧 *Érico*: https://wa.me/5511940497678\n"
+                "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000 - Penha de França - SP\n"
+                "☎️ (11) 2092-2304\n"
+                "👉 https://wa.me/551120922304\n"
+                "👉 https://wa.me/5511917027705\n"
+                "🌐 Site: https://www.tssullatoautoservice.com.br\n"
+                "📸 Instagram: https://www.instagram.com/tssullatoautoservice/\n"
             )
 
             enviar_texto(numero, "Se precisar de ajuda, estou aqui! 😊")
