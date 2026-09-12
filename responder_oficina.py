@@ -656,10 +656,10 @@ _GATILHOS_HANDOFF_COMERCIAL = (
     "voces tem", "vcs tem", "voces vendem", "vcs vendem", "vendem",
     "voces possuem", "vcs possuem",
     # intenção concreta de compra
-    "quero comprar", "quero fechar", "vou levar", "quero levar",
+    "quero comprar", "preciso comprar", "quero fechar", "vou levar", "quero levar",
     "fechar negocio", "fechar pedido",
     # orçamento/cotação
-    "orcamento", "cotacao", "quanto custa", "qual o valor", "qual o preco",
+    "orcamento", "cotacao", "cotar", "quanto custa", "qual o valor", "qual o preco",
     "quanto fica", "quanto sai", "me passa o preco", "me passa o valor",
     # confirmação de disponibilidade/preço/aplicação quando depende de humano
     "tem em estoque", "tem disponivel", "confirmar disponibilidade",
@@ -731,6 +731,20 @@ _GATILHOS_PERGUNTA_INSTITUCIONAL = (
 # institucional nem informativa (checadas antes).
 _BARE_TEM_RE = re.compile(r"\btem\b")
 
+# Menção a uma peça específica, sem nenhum verbo de intenção junto — ex.:
+# "pastilhas de freio da master 2020" (diagnóstico real: não batia em
+# nenhuma frase de _GATILHOS_HANDOFF_COMERCIAL nem no "tem" solto, caía no
+# fallback da IA, que sem dado confiável só oferecia WhatsApp geral/Érico
+# em vez do handoff comercial). Mesma proteção do "tem" solto: só
+# considerado quando NÃO for pergunta institucional nem informativa
+# (checadas antes em _eh_sinal_handoff_comercial), então "qual a função da
+# barra axial?" continua indo pra IA normalmente.
+_GATILHOS_PECA_MENCIONADA_RE = re.compile(
+    r"\b(pastilha|disco de freio|amortecedor|embreagem|correia|farol|lanterna|"
+    r"radiador|bateria|vela|alternador|barra axial|barra de direcao|rolamento|"
+    r"filtro de oleo|filtro de ar|filtro de combustivel)\w*\b"
+)
+
 
 def _eh_pergunta_institucional(texto_norm: str) -> bool:
     return any(g in texto_norm for g in _GATILHOS_PERGUNTA_INSTITUCIONAL)
@@ -741,7 +755,9 @@ def _eh_sinal_handoff_comercial(texto_norm: str) -> bool:
         return False
     if any(g in texto_norm for g in _GATILHOS_HANDOFF_COMERCIAL):
         return True
-    return bool(_BARE_TEM_RE.search(texto_norm))
+    if _BARE_TEM_RE.search(texto_norm):
+        return True
+    return bool(_GATILHOS_PECA_MENCIONADA_RE.search(texto_norm))
 
 
 _RESPONSAVEIS_HANDOFF = [
@@ -907,8 +923,8 @@ def _acionar_handoff_comercial(numero: str, nome_whatsapp: str, sessao: dict, te
     enviar_texto(
         numero,
         f"Perfeito, {nome_whatsapp}! 👍\n\n"
-        f"Vou encaminhar sua solicitação para o(a) {responsavel['nome']}, da nossa equipe.\n"
-        "Ele(a) vai dar continuidade ao seu atendimento.\n\n"
+        f"Vou encaminhar sua solicitação para {responsavel['nome']}, da nossa equipe.\n"
+        f"{responsavel['nome']} vai dar continuidade ao seu atendimento.\n\n"
         f"📱 {responsavel['nome']}: {responsavel['link']}"
     )
 
