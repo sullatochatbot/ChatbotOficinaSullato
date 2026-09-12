@@ -41,8 +41,8 @@ def home():
 @app.route("/politica-de-privacidade", methods=["GET"])
 def politica_privacidade():
     return """
-    <h1>Política de Privacidade – Sullato Oficina</h1>
-    <p>A Sullato Oficina utiliza dados exclusivamente para atendimento.</p>
+    <h1>Política de Privacidade – TS Sullato Auto Service</h1>
+    <p>A TS Sullato Auto Service utiliza dados exclusivamente para atendimento.</p>
     <p>Não compartilhamos informações com terceiros.</p>
     <p>Contato: anderson@sullato.com.br</p>
     """, 200

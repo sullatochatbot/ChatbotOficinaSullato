@@ -1342,7 +1342,7 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
                 "🌐 Site: https://www.sullato.com.br\n\n"
                 "📸 Instagram: https://www.instagram.com/sullato.veiculos\n\n"
 
-                "📍 *Sullato Oficina e Peças*\n"
+                "📍 *TS Sullato Auto Service*\n"
                 "Av. Amador Bueno da Veiga, 4222 – CEP 03652-000 - Penha de França - SP\n"
                 "☎️ (11) 2092-2304\n"
                 "👉 https://wa.me/551120922304\n"
@@ -1491,7 +1491,12 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
 
         sessao["etapa"] = "descricao_especifica"
         # Força execução imediata da próxima etapa
-        return responder_oficina(numero, "", nome_whatsapp)
+        return responder_oficina(
+            numero,
+            "",
+            nome_whatsapp,
+            sender_phone_number_id
+        )
 
     if etapa == "pergunta_ano_modelo":
         d["ano_modelo"] = texto

@@ -11,7 +11,7 @@ def responder_com_ia(mensagem: str, nome: Optional[str] = None, historico: list 
         client = anthropic.Anthropic(api_key=api_key)
 
         sistema = (
-            "Você é o assistente virtual da Sullato Oficina e Peças, em São Paulo. "
+            "Você é o assistente virtual da TS Sullato Auto Service, em São Paulo. "
             "Endereço: Av. Amador Bueno da Veiga, 4222 – Penha de França – CEP 03652-000 – SP. "
             "Google Maps: https://maps.google.com/?q=Av.+Amador+Bueno+da+Veiga,+4222,+Penha+de+França,+São+Paulo,+SP. "
             "Instagram: https://www.instagram.com/tssullatoautoservice/ (@tssullatoautoservice). "
