@@ -811,6 +811,7 @@ def _enviar_template_novo_atendimento_responsavel(numero_responsavel, nome_clien
             },
         }
         headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
+        print(f"🔍 HANDOFF DEBUG | DESTINO_TEMPLATE: {numero_responsavel!r} | PARAMS: nome={nome_cliente!r} interesse={interesse!r} veiculo={veiculo!r} link={link_cliente!r}")
         r = requests.post(_url_mensagens(), json=payload, headers=headers, timeout=30)
         print("📤 Template novo atendimento (responsável):", r.status_code, r.text)
         return 200 <= r.status_code < 300
@@ -847,6 +848,7 @@ def _notificar_responsavel_handoff(responsavel, nome_cliente, interesse, veiculo
     confirmado.
     """
     numero_responsavel = responsavel["link"].replace("https://wa.me/", "").strip()
+    print(f"🔍 HANDOFF DEBUG | RESPONSÁVEL: {responsavel['nome']!r} ({numero_responsavel!r}) | LINK_CLIENTE recebido: {link_cliente!r}")
 
     template_ok = _enviar_template_novo_atendimento_responsavel(
         numero_responsavel, nome_cliente, interesse, veiculo, link_cliente
@@ -886,6 +888,7 @@ def _acionar_handoff_comercial(numero: str, nome_whatsapp: str, sessao: dict, te
     interesse = (texto_gatilho or "").strip()[:200] or "não especificado"
     numero_normalizado = "".join(ch for ch in (numero or "") if ch.isdigit())
     link_cliente = f"https://wa.me/{numero_normalizado}"
+    print(f"🔍 HANDOFF DEBUG | CLIENTE ORIGINAL: {numero!r} | LINK_CLIENTE: {link_cliente!r}")
 
     if not ja_atribuido:
         enviado = _notificar_responsavel_handoff(responsavel, nome_whatsapp, interesse, veiculo, link_cliente)
