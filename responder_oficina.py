@@ -811,7 +811,7 @@ def _enviar_template_novo_atendimento_responsavel(numero_responsavel, nome_clien
             },
         }
         headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
-        print(f"🔍 HANDOFF DEBUG | DESTINO_TEMPLATE: {numero_responsavel!r} | PARAMS: nome={nome_cliente!r} interesse={interesse!r} veiculo={veiculo!r} link={link_cliente!r}")
+        print(f"🔍 HANDOFF DEBUG | TEMPLATE_DESTINO: {numero_responsavel!r} | TEMPLATE_LINK_CLIENTE: {link_cliente!r}")
         r = requests.post(_url_mensagens(), json=payload, headers=headers, timeout=30)
         print("📤 Template novo atendimento (responsável):", r.status_code, r.text)
         return 200 <= r.status_code < 300
@@ -848,7 +848,6 @@ def _notificar_responsavel_handoff(responsavel, nome_cliente, interesse, veiculo
     confirmado.
     """
     numero_responsavel = responsavel["link"].replace("https://wa.me/", "").strip()
-    print(f"🔍 HANDOFF DEBUG | RESPONSÁVEL: {responsavel['nome']!r} ({numero_responsavel!r}) | LINK_CLIENTE recebido: {link_cliente!r}")
 
     template_ok = _enviar_template_novo_atendimento_responsavel(
         numero_responsavel, nome_cliente, interesse, veiculo, link_cliente
@@ -888,9 +887,16 @@ def _acionar_handoff_comercial(numero: str, nome_whatsapp: str, sessao: dict, te
     interesse = (texto_gatilho or "").strip()[:200] or "não especificado"
     numero_normalizado = "".join(ch for ch in (numero or "") if ch.isdigit())
     link_cliente = f"https://wa.me/{numero_normalizado}"
-    print(f"🔍 HANDOFF DEBUG | CLIENTE ORIGINAL: {numero!r} | LINK_CLIENTE: {link_cliente!r}")
 
     if not ja_atribuido:
+        print(
+            "🔍 HANDOFF DEBUG\n"
+            f"CLIENTE_NUMERO_ORIGINAL: {numero!r}\n"
+            f"RESPONSAVEL_NOME: {responsavel['nome']!r}\n"
+            f"RESPONSAVEL_LINK: {responsavel['link']!r}\n"
+            f"LINK_CLIENTE: {link_cliente!r}\n"
+            f"DESTINO_TEMPLATE: {responsavel['link'].replace('https://wa.me/', '').strip()!r}"
+        )
         enviado = _notificar_responsavel_handoff(responsavel, nome_whatsapp, interesse, veiculo, link_cliente)
         if not enviado:
             print(f"⚠️ Falha ao notificar {responsavel['nome']} — handoff NÃO concluído, tentará de novo na próxima mensagem.")
@@ -904,6 +910,54 @@ def _acionar_handoff_comercial(numero: str, nome_whatsapp: str, sessao: dict, te
         f"Vou encaminhar sua solicitação para o(a) {responsavel['nome']}, da nossa equipe.\n"
         "Ele(a) vai dar continuidade ao seu atendimento.\n\n"
         f"📱 {responsavel['nome']}: {responsavel['link']}"
+    )
+
+
+# ============================================================
+# CONTINUIDADE DO HANDOFF COMERCIAL — só quando sessao["responsavel_handoff"]
+# já está definido nesta sessão. Perguntas sobre quem vai atender, se o
+# responsável liga ou se o cliente liga, contato dele(a), etc., não podem
+# ir para a IA (ela não tem acesso à sessão e pode citar qualquer um dos
+# contatos do prompt institucional — oficina, Érico, criador — errando o
+# responsável). Resposta sempre determinística, usando exclusivamente
+# sessao["responsavel_handoff"]["nome"]/["link"], nunca responder_com_ia().
+# ============================================================
+
+_GATILHOS_CONTINUIDADE_RESPONSAVEL = (
+    "quem vai me atender", "quem vai atender", "quem fico responsavel",
+    "quem ficou responsavel", "qual o contato dele", "qual o contato dela",
+    "como falo com ele", "como falo com ela", "posso chamar",
+    "vou aguardar ou entro em contato", "ele vai me chamar", "ela vai me chamar",
+    "ela vai falar comigo", "ele vai falar comigo", "ele vai entrar em contato",
+    "ela vai entrar em contato",
+    # variações de "entrar em contato" sem exigir pronome ele/ela — cobre o
+    # caso real de teste "a priscila vai entrar em contato comigo" (usa "a
+    # priscila", não "ela").
+    "vai entrar em contato", "entra em contato", "entrou em contato",
+)
+
+# "eu chamo ele"/"eu ligo pra ela"/"ele vai me ligar" etc. — cobre variações
+# sem precisar enumerar cada conjugação: pronome ele/ela perto de um verbo
+# de contato, nas duas ordens possíveis (pronome antes ou depois do verbo).
+_PADRAO_CONTINUIDADE_RESPONSAVEL_RE = re.compile(
+    r"\b(ele|ela)\b.{0,20}\b(chama|liga|contata|fala|atende|procuro)\w*|"
+    r"\b(chamo|ligo|contato|procuro|falo)\w*\b.{0,20}\b(ele|ela)\b"
+)
+
+
+def _eh_pergunta_continuidade_responsavel(texto_norm: str) -> bool:
+    if any(g in texto_norm for g in _GATILHOS_CONTINUIDADE_RESPONSAVEL):
+        return True
+    return bool(_PADRAO_CONTINUIDADE_RESPONSAVEL_RE.search(texto_norm))
+
+
+def _responder_continuidade_responsavel(numero: str, sessao: dict) -> None:
+    responsavel = sessao["responsavel_handoff"]
+    enviar_texto(
+        numero,
+        f"Pode chamar {responsavel['nome']} diretamente por aqui:\n"
+        f"📲 {responsavel['link']}\n\n"
+        "Seu atendimento já foi encaminhado para nossa equipe. 👍"
     )
 
 
@@ -970,8 +1024,18 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
         return
     
     # HANDOFF — detectar antes de qualquer outra lógica
-    
+
     if any(g in texto for g in _GATILHOS_HANDOFF):
+        # Precedência: se esta sessão já tem um responsável comercial
+        # (Juliano/Priscila) atribuído, o handoff genérico do Érico NÃO
+        # deve sobrepor — o cliente já está com quem trata peças/serviços.
+        # Só cai no Érico quando não há handoff comercial em andamento.
+        sessao_existente = SESSOES.get(_chave_sessao(numero, sender_phone_number_id))
+        responsavel_ja_definido = sessao_existente.get("responsavel_handoff") if sessao_existente else None
+        if responsavel_ja_definido:
+            _responder_continuidade_responsavel(numero, sessao_existente)
+            return
+
         _enviar_alerta_handoff(numero, nome_whatsapp)
         enviar_texto(
             numero,
@@ -1154,6 +1218,10 @@ def responder_oficina(numero, texto_digitado, nome_whatsapp, sender_phone_number
 
             if _eh_sinal_handoff_comercial(texto_norm):
                 _acionar_handoff_comercial(numero, nome_whatsapp, sessao, texto_digitado)
+                return
+
+            if sessao.get("responsavel_handoff") and _eh_pergunta_continuidade_responsavel(texto_norm):
+                _responder_continuidade_responsavel(numero, sessao)
                 return
 
             resposta_ia = None
