@@ -857,18 +857,22 @@ def _enviar_texto_com_status(numero, texto) -> bool:
 def _notificar_responsavel_handoff(responsavel, nome_cliente, interesse, veiculo, link_cliente) -> bool:
     """
     Avisa o responsável sobre o novo lead comercial. Tenta o template
-    aprovado primeiro (só dispara de fato quando configurado); em
-    qualquer caso, também garante o aviso em texto livre com o resumo e o
-    link clicável do cliente (sujeito à janela de 24h da Meta enquanto o
-    template não está pronto). True se pelo menos um dos dois canais foi
-    confirmado.
+    aprovado primeiro (só dispara de fato quando configurado); se aceito
+    pela Meta, essa é a única mensagem enviada — texto livre NÃO é
+    disparado em cima de um template já confirmado (evita duplicidade e
+    o 131047 de janela de 24h fechada, já que enviar o template não abre
+    essa janela). Só cai no texto livre (sujeito à janela de 24h) quando
+    o template falhar ou TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL não estiver
+    configurado. True se algum dos dois canais foi confirmado.
     """
     numero_responsavel = responsavel["link"].replace("https://wa.me/", "").strip()
 
     template_ok = _enviar_template_novo_atendimento_responsavel(
         numero_responsavel, nome_cliente, interesse, veiculo, link_cliente
     )
-    if TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL and not template_ok:
+    if template_ok:
+        return True
+    if TEMPLATE_NOVO_ATENDIMENTO_RESPONSAVEL:
         print(f"⚠️ Falha ao enviar template ao responsável {responsavel['nome']} — seguindo com texto livre.")
 
     texto_lead = (
